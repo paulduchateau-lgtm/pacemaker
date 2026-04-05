@@ -2,26 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --color-ink: #1C1C1A;
+  --color-paper: #F0EEEB;
+  --color-green: #A5D900;
+  --color-border: #D4D0CA;
+  --color-muted: #8A8680;
+  --color-dark: #1E1D1B;
+  --color-elevated: #363530;
+  --color-amber: #C4872E;
+  --color-copper: #A0694A;
+  --color-alert: #D95B2F;
+
+  /* Phase colors */
+  --phase-cadrage: #A5D900;
+  --phase-diagnostic: #7AB800;
+  --phase-modele-cible: #4A9E00;
+  --phase-developpement: #2D7D9A;
+  --phase-stabilisation: #E8A317;
+  --phase-transfert: #D95B2F;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  font-family: "DM Sans", sans-serif;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+.mono-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
