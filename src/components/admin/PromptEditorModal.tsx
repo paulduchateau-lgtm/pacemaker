@@ -50,7 +50,7 @@ export default function PromptEditorModal({ taskId, livrable, onClose, onSubmit 
               Prompt — {livrable.titre}
             </span>
             <p className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-              Modifiez le prompt avant la g\u00e9n\u00e9ration. Votre version sera m\u00e9moris\u00e9e.
+              Modifiez le prompt avant la génération. Votre version sera mémorisée.
             </p>
           </div>
           <button
@@ -58,7 +58,7 @@ export default function PromptEditorModal({ taskId, livrable, onClose, onSubmit 
             className="min-w-[44px] min-h-[44px] flex items-center justify-center text-lg"
             style={{ color: "var(--color-paper)" }}
           >
-            \u00d7
+            ×
           </button>
         </div>
 
@@ -113,7 +113,7 @@ export default function PromptEditorModal({ taskId, livrable, onClose, onSubmit 
                 opacity: loading || !prompt.trim() ? 0.5 : 1,
               }}
             >
-              \u25b6 G\u00e9n\u00e9rer le livrable
+              ▶ Générer le livrable
             </button>
           </div>
         </div>
