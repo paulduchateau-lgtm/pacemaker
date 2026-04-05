@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       "INSERT INTO events (id, type, label, week_id, content) VALUES (?, 'recalib', ?, ?, ?)",
       [
         evtId,
-        `Recalibration du plan \u00e0 S${currentWeek}`,
+        `Recalibration du plan à S${currentWeek}`,
         currentWeek,
         recalib.carryover_notes,
       ]

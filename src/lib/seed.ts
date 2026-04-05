@@ -15,7 +15,7 @@ const CREATE_TABLES = [
     id TEXT PRIMARY KEY, week_id INTEGER NOT NULL REFERENCES weeks(id),
     label TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
     owner TEXT NOT NULL DEFAULT 'Paul',
-    priority TEXT NOT NULL DEFAULT 'moyenne', status TEXT NOT NULL DEFAULT '\u00e0 faire',
+    priority TEXT NOT NULL DEFAULT 'moyenne', status TEXT NOT NULL DEFAULT 'à faire',
     source TEXT NOT NULL DEFAULT 'manual', jh_estime REAL,
     livrables_generes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -34,7 +34,7 @@ const CREATE_TABLES = [
   )`,
   `CREATE TABLE IF NOT EXISTS livrables (
     id TEXT PRIMARY KEY, week_id INTEGER NOT NULL REFERENCES weeks(id),
-    label TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'planifi\u00e9'
+    label TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'planifié'
   )`,
   `CREATE TABLE IF NOT EXISTS rapports (
     id TEXT PRIMARY KEY, label TEXT NOT NULL, etat TEXT NOT NULL,
@@ -91,7 +91,7 @@ export async function seed() {
   for (const week of INITIAL_WEEKS) {
     for (const label of week.livrables) {
       await execute(
-        `INSERT OR REPLACE INTO livrables (id, week_id, label, status) VALUES (?, ?, ?, 'planifi\u00e9')`,
+        `INSERT OR REPLACE INTO livrables (id, week_id, label, status) VALUES (?, ?, ?, 'planifié')`,
         [generateId(), week.id, label]
       );
     }

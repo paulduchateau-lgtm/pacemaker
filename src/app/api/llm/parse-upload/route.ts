@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     const evtId = `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     await execute(
       "INSERT INTO events (id, type, label, week_id, content) VALUES (?, 'upload', ?, ?, ?)",
-      [evtId, `CR import\u00e9 \u2014 S${weekId}`, weekId, text.slice(0, 500)]
+      [evtId, `CR importé — S${weekId}`, weekId, text.slice(0, 500)]
     );
 
     return NextResponse.json({

@@ -27,13 +27,13 @@ export default function UploadZone({ weekId }: { weekId: number }) {
         setResult(`Erreur : ${data.error}`);
       } else {
         setResult(
-          `${data.actions} actions, ${data.decisions} d\u00e9cisions, ${data.risks} risques, ${data.opportunities} opportunit\u00e9s`
+          `${data.actions} actions, ${data.decisions} décisions, ${data.risks} risques, ${data.opportunities} opportunités`
         );
         setText("");
         await Promise.all([fetchTasks(), fetchRisks(), fetchEvents()]);
       }
     } catch {
-      setResult("Erreur r\u00e9seau");
+      setResult("Erreur réseau");
     }
     setLoading(false);
   };
@@ -61,7 +61,7 @@ export default function UploadZone({ weekId }: { weekId: number }) {
           />
           <div className="flex items-center gap-2">
             <Button onClick={handleUpload} disabled={!text.trim() || loading}>
-              {loading ? "\u29F3 ANALYSE..." : "\u25B6 ANALYSER"}
+              {loading ? "⧳ ANALYSE..." : "▶ ANALYSER"}
             </Button>
             {result && (
               <span className="text-xs" style={{ color: "var(--color-muted)" }}>

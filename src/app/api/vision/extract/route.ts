@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { error: "Type non support\u00e9. Formats : jpg, png, webp, heic" },
+        { error: "Type non supporté. Formats : jpg, png, webp, heic" },
         { status: 400 }
       );
     }

@@ -6,7 +6,7 @@ import Badge from "@/components/ui/Badge";
 import { useStore } from "@/store";
 import TaskDetail from "./TaskDetail";
 
-const STATUSES: TaskStatus[] = ["\u00e0 faire", "en cours", "bloqu\u00e9", "fait"];
+const STATUSES: TaskStatus[] = ["à faire", "en cours", "bloqué", "fait"];
 
 export default function TaskRow({ task }: { task: Task }) {
   const updateTaskStatus = useStore((s) => s.updateTaskStatus);
@@ -24,7 +24,7 @@ export default function TaskRow({ task }: { task: Task }) {
           className="text-xs mt-1 md:mt-0 flex-shrink-0"
           style={{ color: "var(--color-muted)" }}
         >
-          {expanded ? "\u25BC" : "\u25B6"}
+          {expanded ? "▼" : "▶"}
         </span>
 
         <div className="flex-1 min-w-0">

@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const rows = await query("SELECT * FROM tasks WHERE id = ?", [taskId]);
     if (rows.length === 0) {
       return NextResponse.json(
-        { error: "T\u00e2che non trouv\u00e9e" },
+        { error: "Tâche non trouvée" },
         { status: 404 }
       );
     }

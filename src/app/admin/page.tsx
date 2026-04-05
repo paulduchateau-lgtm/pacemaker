@@ -64,7 +64,7 @@ export default function AdminBacklog() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KpiCard label="TACHES" value={stats.total} sub={`${stats.done} termin\u00e9es`} />
+        <KpiCard label="TACHES" value={stats.total} sub={`${stats.done} terminées`} />
         <KpiCard label="AVANCEMENT" value={`${stats.pct}%`} />
         <KpiCard label="SEMAINE" value={`S${currentWeek}`} sub="/ 7" />
       </div>
@@ -87,8 +87,8 @@ export default function AdminBacklog() {
                     disabled={generating === week.id}
                   >
                     {generating === week.id
-                      ? "\u29F3 GENERATION..."
-                      : "\u2728 GENERER TACHES"}
+                      ? "⧳ GENERATION..."
+                      : "✨ GENERER TACHES"}
                   </Button>
                 </div>
               )}

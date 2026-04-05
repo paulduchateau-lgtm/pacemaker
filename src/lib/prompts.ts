@@ -19,26 +19,26 @@ export function buildGenerateLivrablesPrompt(
   ragContext: string = ""
 ): string {
   return `Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
-Mission : 7 semaines effectives, 30 jh budget r\u00e9el, forfait 60 jh / 53 900 \u20ac HT.
+Mission : 7 semaines effectives, 30 jh budget réel, forfait 60 jh / 53 900 € HT.
 ${ragContext}
-Contexte : Semaine ${week.weekId} \u2014 "${week.title}" (phase ${week.phase})
+Contexte : Semaine ${week.weekId} — "${week.title}" (phase ${week.phase})
 
-T\u00e2che \u00e0 analyser :
-- Libell\u00e9 : ${task.label}
+Tâche à analyser :
+- Libellé : ${task.label}
 - Description : ${task.description || "Aucune description"}
 - Responsable : ${task.owner}
-- Priorit\u00e9 : ${task.priority}
+- Priorité : ${task.priority}
 
-G\u00e9n\u00e8re les livrables concrets attendus pour cette t\u00e2che et un plan d'action.
+Génère les livrables concrets attendus pour cette tâche et un plan d'action.
 Pour chaque livrable, indique le titre, une description courte, et le format attendu
-(ex: "Document Word", "Fichier Power BI .pbix", "Email", "Pr\u00e9sentation PPT", "Tableau Excel", "Capture \u00e9cran", etc.)
+(ex: "Document Word", "Fichier Power BI .pbix", "Email", "Présentation PPT", "Tableau Excel", "Capture écran", etc.)
 
-R\u00e9ponds UNIQUEMENT avec du JSON :
+Réponds UNIQUEMENT avec du JSON :
 {
   "livrables": [
     {"titre": "...", "description": "...", "format": "..."}
   ],
-  "plan_action": "Description s\u00e9quentielle des \u00e9tapes pour r\u00e9aliser cette t\u00e2che"
+  "plan_action": "Description séquentielle des étapes pour réaliser cette tâche"
 }`;
 }
 
@@ -48,30 +48,30 @@ export function buildGenerateTasksPrompt(
   prevWeekTasks: Task[],
   ragContext: string = ""
 ): string {
-  const blocked = prevWeekTasks.filter((t) => t.status === "bloqu\u00e9");
+  const blocked = prevWeekTasks.filter((t) => t.status === "bloqué");
   const notDone = prevWeekTasks.filter(
-    (t) => t.status !== "fait" && t.status !== "bloqu\u00e9"
+    (t) => t.status !== "fait" && t.status !== "bloqué"
   );
 
   return `Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
-Mission : 7 semaines effectives, 30 jh budget r\u00e9el, forfait 60 jh / 53 900 \u20ac HT.
+Mission : 7 semaines effectives, 30 jh budget réel, forfait 60 jh / 53 900 € HT.
 ${ragContext}
-Semaine ${week.id} \u2014 "${week.title}" (phase ${week.phase})
+Semaine ${week.id} — "${week.title}" (phase ${week.phase})
 Budget : ${week.budget_jh} jh
-Actions pr\u00e9vues : ${week.actions.join(", ")}
+Actions prévues : ${week.actions.join(", ")}
 Livrables attendus : ${week.livrables.join(", ")}
 Responsable : ${week.owner}
 
-T\u00e2ches d\u00e9j\u00e0 cr\u00e9\u00e9es : ${existingTasks.length > 0 ? existingTasks.map((t) => t.label).join(", ") : "aucune"}
+Tâches déjà créées : ${existingTasks.length > 0 ? existingTasks.map((t) => t.label).join(", ") : "aucune"}
 
-${blocked.length > 0 ? `T\u00e2ches bloqu\u00e9es semaine pr\u00e9c\u00e9dente : ${blocked.map((t) => t.label).join(", ")}` : ""}
-${notDone.length > 0 ? `T\u00e2ches non termin\u00e9es semaine pr\u00e9c\u00e9dente : ${notDone.map((t) => t.label).join(", ")}` : ""}
+${blocked.length > 0 ? `Tâches bloquées semaine précédente : ${blocked.map((t) => t.label).join(", ")}` : ""}
+${notDone.length > 0 ? `Tâches non terminées semaine précédente : ${notDone.map((t) => t.label).join(", ")}` : ""}
 
-G\u00e9n\u00e8re 4 \u00e0 6 t\u00e2ches concr\u00e8tes et actionnables pour cette semaine.
+Génère 4 à 6 tâches concrètes et actionnables pour cette semaine.
 Les owners possibles sont : "Paul", "Paul B.", "Client".
-Les priorit\u00e9s possibles sont : "haute", "moyenne", "basse".
+Les priorités possibles sont : "haute", "moyenne", "basse".
 
-R\u00e9ponds UNIQUEMENT avec un tableau JSON :
+Réponds UNIQUEMENT avec un tableau JSON :
 [{"label": "...", "owner": "Paul|Paul B.|Client", "priority": "haute|moyenne|basse"}]`;
 }
 
@@ -82,17 +82,17 @@ export function buildParseUploadPrompt(
 ): string {
   return `Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
 ${ragContext}
-Voici un compte-rendu de r\u00e9union pour la semaine ${weekId} :
+Voici un compte-rendu de réunion pour la semaine ${weekId} :
 
 ---
 ${uploadText}
 ---
 
-Extrais les \u00e9l\u00e9ments structur\u00e9s suivants du compte-rendu.
+Extrais les éléments structurés suivants du compte-rendu.
 Les owners possibles pour les actions sont : "Paul", "Paul B.", "Client".
-Les priorit\u00e9s possibles sont : "haute", "moyenne", "basse".
+Les priorités possibles sont : "haute", "moyenne", "basse".
 
-R\u00e9ponds UNIQUEMENT avec du JSON :
+Réponds UNIQUEMENT avec du JSON :
 {
   "decisions": ["..."],
   "actions": [{"label": "...", "owner": "...", "priority": "..."}],
@@ -116,41 +116,41 @@ export function buildRecalibrationPrompt(
   const weekSummaries = state.weeks.map((w) => {
     const weekTasks = state.tasks.filter((t) => t.weekId === w.id);
     const done = weekTasks.filter((t) => t.status === "fait").length;
-    const blocked = weekTasks.filter((t) => t.status === "bloqu\u00e9").length;
+    const blocked = weekTasks.filter((t) => t.status === "bloqué").length;
     const isPast = w.id < state.currentWeek;
 
-    return `Semaine ${w.id} (${w.phase} \u2014 ${w.title}) [${w.budget_jh} jh]${isPast ? " [PASS\u00c9E]" : w.id === state.currentWeek ? " [EN COURS]" : ""}
-  T\u00e2ches : ${weekTasks.length} total, ${done} faites, ${blocked} bloqu\u00e9es
-  Livrables pr\u00e9vus : ${w.livrables.join(", ")}`;
+    return `Semaine ${w.id} (${w.phase} — ${w.title}) [${w.budget_jh} jh]${isPast ? " [PASSÉE]" : w.id === state.currentWeek ? " [EN COURS]" : ""}
+  Tâches : ${weekTasks.length} total, ${done} faites, ${blocked} bloquées
+  Livrables prévus : ${w.livrables.join(", ")}`;
   });
 
   const activeRisks = state.risks.filter((r) => r.status === "actif");
   const decisions = state.events.filter((e) => e.type === "decision");
 
   return `Tu es un assistant de pilotage de mission BI Power BI pour Agirc-Arrco (DAS).
-Mission : 7 semaines, 30 jh budget r\u00e9el, forfait 60 jh / 53 900 \u20ac HT.
-La mission est actuellement \u00e0 la semaine ${state.currentWeek}.
+Mission : 7 semaines, 30 jh budget réel, forfait 60 jh / 53 900 € HT.
+La mission est actuellement à la semaine ${state.currentWeek}.
 ${ragContext}
-\u00c9tat complet du projet :
+État complet du projet :
 
 ${weekSummaries.join("\n\n")}
 
 Risques actifs :
 ${activeRisks.map((r) => `- ${r.label} (impact: ${r.impact}, proba: ${r.probability})`).join("\n")}
 
-D\u00e9cisions prises :
+Décisions prises :
 ${decisions.map((d) => `- S${d.weekId}: ${d.label}`).join("\n")}
 
-Recalibre le plan pour les semaines \u00e0 venir (\u00e0 partir de la semaine ${state.currentWeek}).
-- Pr\u00e9serve les t\u00e2ches "fait"
+Recalibre le plan pour les semaines à venir (à partir de la semaine ${state.currentWeek}).
+- Préserve les tâches "fait"
 - Reporte les blocages intelligemment
 - Respecte les jalons/livrables de chaque semaine
 - Respecte le budget jh par semaine
 
 Les owners possibles sont : "Paul", "Paul B.", "Client".
-Les priorit\u00e9s possibles sont : "haute", "moyenne", "basse".
+Les priorités possibles sont : "haute", "moyenne", "basse".
 
-R\u00e9ponds UNIQUEMENT avec du JSON :
+Réponds UNIQUEMENT avec du JSON :
 {
   "weeks": {
     "${state.currentWeek}": [{"label": "...", "owner": "...", "priority": "..."}]

@@ -40,7 +40,7 @@ export default function DecisionsTimeline({
         ))}
         {decisions.length === 0 && (
           <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-            Aucune d\u00e9cision enregistr\u00e9e
+            Aucune décision enregistrée
           </p>
         )}
       </div>

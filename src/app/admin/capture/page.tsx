@@ -42,7 +42,7 @@ export default function CapturePage() {
         setExtraction(data.extraction);
       }
     } catch {
-      setStatus("Erreur r\u00e9seau");
+      setStatus("Erreur réseau");
     }
     setLoading(false);
   };
@@ -92,7 +92,7 @@ export default function CapturePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: `Capture S${currentWeek} \u2014 ${extraction.summary.slice(0, 50)}`,
+          title: `Capture S${currentWeek} — ${extraction.summary.slice(0, 50)}`,
           type: "photo",
           source: "vision",
           weekId: currentWeek,
@@ -107,17 +107,17 @@ export default function CapturePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "vision",
-          label: `Photo analys\u00e9e \u2014 ${extraction.detected_elements.length} \u00e9l\u00e9ments`,
+          label: `Photo analysée — ${extraction.detected_elements.length} éléments`,
           weekId: currentWeek,
           content: extraction.summary,
         }),
       });
 
       await Promise.all([fetchTasks(), fetchRisks(), fetchEvents()]);
-      setStatus("Int\u00e9gr\u00e9 avec succ\u00e8s");
+      setStatus("Intégré avec succès");
       reset();
     } catch {
-      setStatus("Erreur lors de l'int\u00e9gration");
+      setStatus("Erreur lors de l'intégration");
     }
     setLoading(false);
   };
@@ -130,7 +130,7 @@ export default function CapturePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: `Capture S${currentWeek} \u2014 ${extraction.summary.slice(0, 50)}`,
+          title: `Capture S${currentWeek} — ${extraction.summary.slice(0, 50)}`,
           type: "photo",
           source: "vision",
           weekId: currentWeek,
@@ -138,7 +138,7 @@ export default function CapturePage() {
           content: extraction.ocr_text,
         }),
       });
-      setStatus("Gard\u00e9 en documentation");
+      setStatus("Gardé en documentation");
       reset();
     } catch {
       setStatus("Erreur");

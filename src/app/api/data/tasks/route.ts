@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       body.description || "",
       body.owner || "Paul",
       body.priority || "moyenne",
-      body.status || "\u00e0 faire",
+      body.status || "à faire",
       body.source || "manual",
     ]
   );
@@ -104,7 +104,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (updates.length === 0) {
-    return NextResponse.json({ error: "Rien \u00e0 mettre \u00e0 jour" }, { status: 400 });
+    return NextResponse.json({ error: "Rien à mettre à jour" }, { status: 400 });
   }
 
   args.push(id);

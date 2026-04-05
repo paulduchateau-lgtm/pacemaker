@@ -89,12 +89,12 @@ export default function TaskDetail({ task }: { task: Task }) {
             borderRadius: "4px",
             color: "var(--color-ink)",
           }}
-          placeholder={"D\u00e9crivez les objectifs, le p\u00e9rim\u00e8tre, les attendus..."}
+          placeholder={"Décrivez les objectifs, le périmètre, les attendus..."}
         />
         {dirty && (
           <div className="flex justify-end mt-1">
             <Button onClick={handleSaveDesc} disabled={saving}>
-              {saving ? "\u29F3" : "\u2713 SAUVEGARDER"}
+              {saving ? "⧳" : "✓ SAUVEGARDER"}
             </Button>
           </div>
         )}
@@ -112,10 +112,10 @@ export default function TaskDetail({ task }: { task: Task }) {
             disabled={generating}
           >
             {generating
-              ? "\u29F3 GENERATION..."
+              ? "⧳ GENERATION..."
               : livrables
-                ? "\u27F3 REGENERER"
-                : "\u25B6 GENERER PAR IA"}
+                ? "⟳ REGENERER"
+                : "▶ GENERER PAR IA"}
           </Button>
         </div>
 
@@ -169,16 +169,16 @@ export default function TaskDetail({ task }: { task: Task }) {
 
         {!livrables && !generating && (
           <p className="text-xs italic" style={{ color: "var(--color-muted)" }}>
-            {"Cliquez sur \u00ab G\u00e9n\u00e9rer par IA \u00bb pour obtenir des livrables et un plan d'action."}
+            {"Cliquez sur « Générer par IA » pour obtenir des livrables et un plan d'action."}
           </p>
         )}
       </div>
 
-      {/* Pi\u00e8ces jointes */}
+      {/* Pièces jointes */}
       <div>
         <div className="flex items-center gap-3 mb-2">
           <span className="mono-label" style={{ color: "var(--color-muted)" }}>
-            {"PI\u00c8CES JOINTES"}
+            {"PIÈCES JOINTES"}
           </span>
           <label className="cursor-pointer">
             <Button
@@ -186,7 +186,7 @@ export default function TaskDetail({ task }: { task: Task }) {
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
             >
-              {uploading ? "\u29F3 UPLOAD..." : "+ AJOUTER"}
+              {uploading ? "⧳ UPLOAD..." : "+ AJOUTER"}
             </Button>
           </label>
           <input
@@ -211,7 +211,7 @@ export default function TaskDetail({ task }: { task: Task }) {
                 }}
               >
                 <span className="text-sm" style={{ color: "var(--color-ink)" }}>
-                  {att.contentType?.startsWith("image/") ? "\u25A3" : "\u25A1"}
+                  {att.contentType?.startsWith("image/") ? "▣" : "□"}
                 </span>
                 <a
                   href={att.blobUrl}
@@ -238,15 +238,15 @@ export default function TaskDetail({ task }: { task: Task }) {
           </div>
         ) : (
           <p className="text-xs italic" style={{ color: "var(--color-muted)" }}>
-            Aucune pi\u00e8ce jointe
+            Aucune pièce jointe
           </p>
         )}
       </div>
 
-      {/* M\u00e9tadonn\u00e9es */}
+      {/* Métadonnées */}
       <div className="flex flex-wrap gap-2 pt-2 border-t" style={{ borderColor: "var(--color-border)" }}>
         <Badge label={`SOURCE: ${task.source}`} color="var(--color-muted)" />
-        <Badge label={`CR\u00c9\u00c9: ${task.createdAt?.split("T")[0] || ""}`} color="var(--color-muted)" />
+        <Badge label={`CRÉÉ: ${task.createdAt?.split("T")[0] || ""}`} color="var(--color-muted)" />
         {task.jh_estime && (
           <Badge label={`${task.jh_estime} JH`} color="var(--color-amber)" />
         )}

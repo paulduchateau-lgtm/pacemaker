@@ -6,12 +6,12 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 
 const EVENT_ICONS: Record<string, string> = {
-  decision: "\u25C6",
-  upload: "\u2191",
-  opportunity: "\u2605",
-  recalib: "\u27F3",
-  task: "\u25B6",
-  risk: "\u26A0",
+  decision: "◆",
+  upload: "↑",
+  opportunity: "★",
+  recalib: "⟳",
+  task: "▶",
+  risk: "⚠",
 };
 
 const EVENT_COLORS: Record<string, string> = {
@@ -57,7 +57,7 @@ export default function AdminJournal() {
                 className="text-lg mt-0.5"
                 style={{ color: EVENT_COLORS[evt.type] || "var(--color-muted)" }}
               >
-                {EVENT_ICONS[evt.type] || "\u25CF"}
+                {EVENT_ICONS[evt.type] || "●"}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -84,7 +84,7 @@ export default function AdminJournal() {
         ))}
         {events.length === 0 && (
           <p className="text-sm text-center py-8" style={{ color: "var(--color-muted)" }}>
-            Aucun \u00e9v\u00e9nement
+            Aucun événement
           </p>
         )}
       </div>

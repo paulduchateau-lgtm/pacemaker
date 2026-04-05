@@ -40,7 +40,7 @@ export default function DocSearch() {
         type="text"
         value={query}
         onChange={(e) => handleSearch(e.target.value)}
-        placeholder="Recherche s\u00e9mantique dans la base documentaire..."
+        placeholder="Recherche sémantique dans la base documentaire..."
         className="w-full text-sm bg-transparent border px-3 py-2 min-h-[44px] outline-none"
         style={{
           borderColor: "var(--color-border)",

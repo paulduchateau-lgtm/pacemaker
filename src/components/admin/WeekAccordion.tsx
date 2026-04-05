@@ -38,7 +38,7 @@ export default function WeekAccordion({
         className="w-full flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-4 py-3 text-left min-h-[44px]"
       >
         <span className="text-xs" style={{ color: phaseColor }}>
-          {open ? "\u25BC" : "\u25B6"}
+          {open ? "▼" : "▶"}
         </span>
         <span
           className="mono-label px-2 py-0.5"
@@ -70,7 +70,7 @@ export default function WeekAccordion({
               className="text-sm py-3 px-4 italic"
               style={{ color: "var(--color-muted)" }}
             >
-              {"Aucune t\u00e2che"}
+              {"Aucune tâche"}
             </p>
           )}
           {tasks.map((t) => (

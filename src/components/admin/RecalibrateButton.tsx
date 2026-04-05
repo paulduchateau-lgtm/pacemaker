@@ -28,7 +28,7 @@ export default function RecalibrateButton() {
         await Promise.all([fetchTasks(), fetchEvents()]);
       }
     } catch {
-      setNotes("Erreur r\u00e9seau");
+      setNotes("Erreur réseau");
     }
     setLoading(false);
   };
@@ -36,7 +36,7 @@ export default function RecalibrateButton() {
   return (
     <div className="space-y-2">
       <Button onClick={handleRecalibrate} disabled={loading} variant="secondary">
-        {loading ? "\u29F3 RECALIBRATION..." : "\u27F3 RECALIBRER LE PLAN"}
+        {loading ? "⧳ RECALIBRATION..." : "⟳ RECALIBRER LE PLAN"}
       </Button>
       {notes && (
         <div
