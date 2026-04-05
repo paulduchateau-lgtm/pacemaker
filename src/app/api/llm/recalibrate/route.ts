@@ -66,17 +66,31 @@ export async function POST(req: NextRequest) {
     }));
 
     const { getRelevantContext } = await import("@/lib/rag");
+    const { getRelevantRules } = await import("@/lib/rules");
+    const { trackGeneration } = await import("@/lib/corrections");
+
     const ragContext = await getRelevantContext(
       `recalibration semaine ${currentWeek} mission BI Power BI Agirc-Arrco`
     );
+    const rules = await getRelevantRules("recalib", { currentWeek });
     const prompt = buildRecalibrationPrompt({
       currentWeek,
       weeks,
       tasks,
       risks,
       events,
-    }, ragContext);
+    }, ragContext, rules);
     const result = await callLLM(prompt, 4000);
+
+    const generationId = await trackGeneration({
+      generationType: "recalib",
+      context: { currentWeek },
+      prompt,
+      rawOutput: result,
+      appliedRuleIds: rules.map((r) => r.id),
+      weekId: currentWeek,
+    });
+
     const recalib = parseJSON<RecalibResult>(result);
 
     // Delete non-done tasks for weeks >= currentWeek
@@ -112,6 +126,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       notes: recalib.carryover_notes,
+      generationId,
+      rawOutput: result,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";

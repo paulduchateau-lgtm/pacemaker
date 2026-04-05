@@ -118,3 +118,35 @@ CREATE INDEX IF NOT EXISTS idx_docs_type ON documents(type);
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON doc_chunks(doc_id);
 CREATE INDEX IF NOT EXISTS doc_chunks_embedding_idx ON doc_chunks(libsql_vector_idx(embedding));
 CREATE INDEX IF NOT EXISTS idx_schedule_changes_week ON schedule_changes(week_id);
+
+-- Apprentissage continu : tracking des générations LLM
+CREATE TABLE IF NOT EXISTS generations (
+  id TEXT PRIMARY KEY,
+  generation_type TEXT NOT NULL,
+  context TEXT NOT NULL DEFAULT '{}',
+  prompt TEXT NOT NULL,
+  raw_output TEXT NOT NULL,
+  applied_rules TEXT NOT NULL DEFAULT '[]',
+  week_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Apprentissage continu : corrections utilisateur + règles apprises
+CREATE TABLE IF NOT EXISTS corrections (
+  id TEXT PRIMARY KEY,
+  generation_id TEXT NOT NULL REFERENCES generations(id),
+  corrected_output TEXT NOT NULL,
+  diff_summary TEXT NOT NULL,
+  rule_learned TEXT NOT NULL,
+  rule_embedding F32_BLOB(1024),
+  generation_type TEXT NOT NULL,
+  applied_count INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_generations_type ON generations(generation_type);
+CREATE INDEX IF NOT EXISTS idx_generations_week ON generations(week_id);
+CREATE INDEX IF NOT EXISTS idx_corrections_gen_id ON corrections(generation_id);
+CREATE INDEX IF NOT EXISTS idx_corrections_type ON corrections(generation_type, status);
+CREATE INDEX IF NOT EXISTS rules_embedding_idx ON corrections(libsql_vector_idx(rule_embedding));

@@ -426,3 +426,58 @@ Tous les fichiers en **UTF-8 sans BOM**. Vérif : `file -I <fichier>` → `chars
 9. Vérifie l'UTF-8
 
 Ce fichier est la source de vérité.
+
+---
+
+## Extension — Apprentissage continu par correction
+
+Le système d'apprentissage est intégré à l'app. Chaque génération LLM est **traçable** et **corrigeable**. Quand l'utilisateur corrige une sortie, l'app extrait une règle et l'injecte dans les prompts futurs du même type.
+
+### Types de générations trackées
+
+- `"tasks"` — génération de tâches par semaine
+- `"parse_cr"` — parsing d'un compte-rendu
+- `"recalib"` — recalibration du plan
+- `"vision"` — extraction depuis photo
+- `"livrables"` — génération de livrables
+
+### Flow de correction
+
+1. Génération LLM → sortie brute + `generationId` retourné au frontend
+2. Bouton "✎ J'ai corrigé" → modale côte-à-côte (original / correction)
+3. POST `/api/corrections` → LLM analyse le diff → extrait une règle généralisable
+4. Règle embedée (Voyage) et indexée dans `corrections`
+5. Prochaines générations du même type : `getRelevantRules()` injecte les règles pertinentes en tête du prompt
+
+### Tables additionnelles
+
+- `generations` — tracking de chaque appel LLM (type, contexte, prompt, sortie brute, règles appliquées)
+- `corrections` — diff + règle apprise + embedding vectoriel + compteur d'applications
+
+### Fichiers additionnels
+
+```
+src/lib/corrections.ts          ← extraction règle + indexation
+src/lib/rules.ts                ← getRelevantRules() pour injection dans prompts
+src/app/api/generations/        ← GET liste/détail des générations
+src/app/api/corrections/        ← POST correction, GET/DELETE, GET stats
+src/store/corrections.ts        ← slice Zustand
+src/components/corrections/     ← CorrectionButton, CorrectionModal, RulesCounter, RuleCard
+src/app/admin/regles/page.tsx   ← consultation des règles apprises
+```
+
+### Règles d'injection
+
+- Max **5 règles** par prompt (au-delà, dilution)
+- Seuil de similarité **0.65** minimum
+- Corpus étanches par `generation_type`
+- Incrémenter `applied_count` à chaque utilisation
+- Règles contradictoires → marquer `status='superseded'`
+
+### Ce qu'il ne faut PAS faire (apprentissage)
+
+- Appliquer toutes les règles d'un type sans filtrer par similarité
+- Injecter plus de 5 règles dans un prompt
+- Écrire manuellement les règles (le LLM les extrait automatiquement)
+- Utiliser les règles d'un type pour un autre type
+- Oublier d'incrémenter `applied_count`

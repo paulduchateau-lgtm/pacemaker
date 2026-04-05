@@ -39,12 +39,26 @@ export async function POST(req: NextRequest) {
     const prevWeekTasks = prevRows.map(mapTask);
 
     const { getRelevantContext } = await import("@/lib/rag");
+    const { getRelevantRules } = await import("@/lib/rules");
+    const { trackGeneration } = await import("@/lib/corrections");
+
     const ragContext = await getRelevantContext(
       `${week.title} ${week.phase} ${week.actions.join(" ")}`,
       weekId
     );
-    const prompt = buildGenerateTasksPrompt(week, existingTasks, prevWeekTasks, ragContext);
+    const rules = await getRelevantRules("tasks", { weekId, phase: week.phase });
+    const prompt = buildGenerateTasksPrompt(week, existingTasks, prevWeekTasks, ragContext, rules);
     const result = await callLLM(prompt, 2000);
+
+    const generationId = await trackGeneration({
+      generationType: "tasks",
+      context: { weekId, phase: week.phase },
+      prompt,
+      rawOutput: result,
+      appliedRuleIds: rules.map((r) => r.id),
+      weekId,
+    });
+
     const generated = parseJSON<{ label: string; owner: string; priority: string }[]>(result);
 
     const created: Task[] = [];
@@ -58,7 +72,7 @@ export async function POST(req: NextRequest) {
       created.push(mapTask(rows[0]));
     }
 
-    return NextResponse.json(created);
+    return NextResponse.json({ tasks: created, generationId, rawOutput: result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import RulesCounter from "@/components/corrections/RulesCounter";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Backlog" },
@@ -9,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/admin/journal", label: "Journal" },
   { href: "/admin/capture", label: "Capture" },
   { href: "/admin/docs", label: "Docs" },
+  { href: "/admin/regles", label: "Règles" },
 ];
 
 export default function TopBar() {
@@ -47,13 +49,18 @@ export default function TopBar() {
             })}
           </nav>
         </div>
-        <Link
-          href={isClient ? "/admin" : "/client"}
-          className="mono-label"
-          style={{ color: "var(--color-muted)" }}
-        >
-          {isClient ? "ADMIN" : "CLIENT"}
-        </Link>
+        <div className="flex items-center gap-4">
+          <div className="hidden lg:block">
+            <RulesCounter />
+          </div>
+          <Link
+            href={isClient ? "/admin" : "/client"}
+            className="mono-label"
+            style={{ color: "var(--color-muted)" }}
+          >
+            {isClient ? "ADMIN" : "CLIENT"}
+          </Link>
+        </div>
       </div>
     </header>
   );

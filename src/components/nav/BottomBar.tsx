@@ -13,6 +13,7 @@ const MAIN_ITEMS = [
 const MORE_ITEMS = [
   { href: "/admin/risques", label: "Risques" },
   { href: "/admin/journal", label: "Journal" },
+  { href: "/admin/regles", label: "Règles" },
   { href: "/client", label: "Vue client" },
 ];
 

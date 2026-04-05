@@ -1,4 +1,5 @@
-import type { Week, Task, Risk, MissionEvent } from "@/types";
+import type { Week, Task, Risk, MissionEvent, Rule } from "@/types";
+import { buildRulesBlock } from "./rules";
 
 interface TaskForLivrables {
   label: string;
@@ -16,9 +17,10 @@ interface WeekContext {
 export function buildGenerateLivrablesPrompt(
   task: TaskForLivrables,
   week: WeekContext,
-  ragContext: string = ""
+  ragContext: string = "",
+  rules: Rule[] = []
 ): string {
-  return `Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
+  return `${buildRulesBlock(rules)}Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
 Mission : 7 semaines effectives, 30 jh budget réel, forfait 60 jh / 53 900 € HT.
 ${ragContext}
 Contexte : Semaine ${week.weekId} — "${week.title}" (phase ${week.phase})
@@ -46,14 +48,15 @@ export function buildGenerateTasksPrompt(
   week: Week,
   existingTasks: Task[],
   prevWeekTasks: Task[],
-  ragContext: string = ""
+  ragContext: string = "",
+  rules: Rule[] = []
 ): string {
   const blocked = prevWeekTasks.filter((t) => t.status === "bloqué");
   const notDone = prevWeekTasks.filter(
     (t) => t.status !== "fait" && t.status !== "bloqué"
   );
 
-  return `Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
+  return `${buildRulesBlock(rules)}Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
 Mission : 7 semaines effectives, 30 jh budget réel, forfait 60 jh / 53 900 € HT.
 ${ragContext}
 Semaine ${week.id} — "${week.title}" (phase ${week.phase})
@@ -78,9 +81,10 @@ Réponds UNIQUEMENT avec un tableau JSON :
 export function buildParseUploadPrompt(
   uploadText: string,
   weekId: number,
-  ragContext: string = ""
+  ragContext: string = "",
+  rules: Rule[] = []
 ): string {
-  return `Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
+  return `${buildRulesBlock(rules)}Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
 ${ragContext}
 Voici un compte-rendu de réunion pour la semaine ${weekId} :
 
@@ -111,7 +115,8 @@ interface RecalibrationState {
 
 export function buildRecalibrationPrompt(
   state: RecalibrationState,
-  ragContext: string = ""
+  ragContext: string = "",
+  rules: Rule[] = []
 ): string {
   const weekSummaries = state.weeks.map((w) => {
     const weekTasks = state.tasks.filter((t) => t.weekId === w.id);
@@ -127,7 +132,7 @@ export function buildRecalibrationPrompt(
   const activeRisks = state.risks.filter((r) => r.status === "actif");
   const decisions = state.events.filter((e) => e.type === "decision");
 
-  return `Tu es un assistant de pilotage de mission BI Power BI pour Agirc-Arrco (DAS).
+  return `${buildRulesBlock(rules)}Tu es un assistant de pilotage de mission BI Power BI pour Agirc-Arrco (DAS).
 Mission : 7 semaines, 30 jh budget réel, forfait 60 jh / 53 900 € HT.
 La mission est actuellement à la semaine ${state.currentWeek}.
 ${ragContext}

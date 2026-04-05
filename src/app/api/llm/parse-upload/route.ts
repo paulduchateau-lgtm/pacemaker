@@ -23,9 +23,23 @@ export async function POST(req: NextRequest) {
     }
 
     const { getRelevantContext, indexDocument } = await import("@/lib/rag");
+    const { getRelevantRules } = await import("@/lib/rules");
+    const { trackGeneration } = await import("@/lib/corrections");
+
     const ragContext = await getRelevantContext(text, weekId);
-    const prompt = buildParseUploadPrompt(text, weekId, ragContext);
+    const rules = await getRelevantRules("parse_cr", { weekId });
+    const prompt = buildParseUploadPrompt(text, weekId, ragContext, rules);
     const result = await callLLM(prompt, 3000);
+
+    const generationId = await trackGeneration({
+      generationType: "parse_cr",
+      context: { weekId },
+      prompt,
+      rawOutput: result,
+      appliedRuleIds: rules.map((r) => r.id),
+      weekId,
+    });
+
     const parsed = parseJSON<ParseResult>(result);
 
     // Insert tasks
@@ -88,6 +102,8 @@ export async function POST(req: NextRequest) {
       actions: parsed.actions.length,
       risks: parsed.risks.length,
       opportunities: parsed.opportunities.length,
+      generationId,
+      rawOutput: result,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";

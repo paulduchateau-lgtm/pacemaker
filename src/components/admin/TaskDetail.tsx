@@ -5,16 +5,24 @@ import type { Task } from "@/types";
 import { useStore } from "@/store";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import CorrectionButton from "@/components/corrections/CorrectionButton";
+import PromptEditorModal from "./PromptEditorModal";
+import LivrableViewer from "./LivrableViewer";
 
 interface LivrableGenere {
   titre: string;
   description: string;
   format: string;
+  url?: string;
+  aiContent?: string;
+  generationId?: string;
 }
 
 interface LivrablesData {
   livrables: LivrableGenere[];
   plan_action: string;
+  generationId?: string;
+  rawOutput?: string;
 }
 
 export default function TaskDetail({ task }: { task: Task }) {
@@ -36,6 +44,8 @@ export default function TaskDetail({ task }: { task: Task }) {
   const [newTitre, setNewTitre] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newFormat, setNewFormat] = useState("docx");
+  const [promptEditorIdx, setPromptEditorIdx] = useState<number | null>(null);
+  const [viewerIdx, setViewerIdx] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const dirty = desc !== (task.description || "");
@@ -69,8 +79,10 @@ export default function TaskDetail({ task }: { task: Task }) {
 
   const handleCreateLivrable = async (
     livrable: LivrableGenere,
-    index: number
+    index: number,
+    customPrompt?: string
   ) => {
+    setPromptEditorIdx(null);
     setCreatingIdx(index);
     try {
       const res = await fetch("/api/llm/create-livrable", {
@@ -79,13 +91,24 @@ export default function TaskDetail({ task }: { task: Task }) {
         body: JSON.stringify({
           taskId: task.id,
           livrable,
+          customPrompt: customPrompt || undefined,
         }),
       });
       if (res.ok) {
         const data = await res.json();
-        window.open(data.url, "_blank");
-        // Refresh docs list so the generated livrable appears
+        // Update livrable in-place with url + aiContent + generationId
+        if (livrables) {
+          livrables.livrables[index] = {
+            ...livrables.livrables[index],
+            url: data.url,
+            aiContent: data.aiContent,
+            generationId: data.generationId,
+          };
+          updateTaskLivrables(task.id, JSON.stringify(livrables));
+        }
         fetchDocs();
+        // Open viewer instead of new tab
+        setViewerIdx(index);
       }
     } catch {
       // silent
@@ -114,6 +137,8 @@ export default function TaskDetail({ task }: { task: Task }) {
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
   };
+
+  const viewerLivrable = viewerIdx !== null && livrables ? livrables.livrables[viewerIdx] : null;
 
   return (
     <div
@@ -198,6 +223,12 @@ export default function TaskDetail({ task }: { task: Task }) {
           >
             + AJOUTER
           </Button>
+          {livrables?.generationId && livrables?.rawOutput && (
+            <CorrectionButton
+              generationId={livrables.generationId}
+              rawOutput={livrables.rawOutput}
+            />
+          )}
         </div>
 
         {/* Add manual livrable form */}
@@ -267,16 +298,16 @@ export default function TaskDetail({ task }: { task: Task }) {
                 key={i}
                 className="bg-white border px-3 py-2"
                 style={{
-                  borderColor: "var(--color-border)",
+                  borderColor: l.url ? "var(--color-green)" : "var(--color-border)",
                   borderRadius: "4px",
                 }}
               >
                 <div className="flex items-start gap-3">
                   <span
                     className="text-sm mt-0.5 flex-shrink-0"
-                    style={{ color: "var(--color-green)" }}
+                    style={{ color: l.url ? "var(--color-green)" : "var(--color-muted)" }}
                   >
-                    ◆
+                    {l.url ? "◆" : "◇"}
                   </span>
                   <div className="flex-1 min-w-0">
                     <p
@@ -292,7 +323,7 @@ export default function TaskDetail({ task }: { task: Task }) {
                       {l.description}
                     </p>
                   </div>
-                  <Badge label={l.format} color="var(--color-copper)" />
+                  <Badge label={l.format} color={l.url ? "var(--color-green)" : "var(--color-copper)"} />
                   <button
                     onClick={() => removeManualLivrable(task.id, i)}
                     className="text-xs px-2 py-1 opacity-40 hover:opacity-100 transition-opacity min-w-[32px] min-h-[32px] flex items-center justify-center"
@@ -302,15 +333,41 @@ export default function TaskDetail({ task }: { task: Task }) {
                     ✕
                   </button>
                 </div>
-                <div className="flex justify-end mt-2 pt-2 border-t" style={{ borderColor: "var(--color-border)" }}>
+                <div className="flex justify-end mt-2 pt-2 border-t gap-2" style={{ borderColor: "var(--color-border)" }}>
+                  {l.aiContent && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => setViewerIdx(i)}
+                    >
+                      ◆ CONSULTER
+                    </Button>
+                  )}
+                  {l.url && (
+                    <a
+                      href={l.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-xs uppercase tracking-wider px-3 py-1.5 border min-h-[36px] flex items-center"
+                      style={{
+                        borderColor: "var(--color-border)",
+                        borderRadius: "4px",
+                        color: "var(--color-ink)",
+                        letterSpacing: "0.12em",
+                      }}
+                    >
+                      ↓ .{l.format}
+                    </a>
+                  )}
                   <Button
                     variant="secondary"
-                    onClick={() => handleCreateLivrable(l, i)}
+                    onClick={() => setPromptEditorIdx(i)}
                     disabled={creatingIdx === i}
                   >
                     {creatingIdx === i
                       ? "⧳ CRÉATION EN COURS..."
-                      : "▶ CRÉER LE LIVRABLE"}
+                      : l.url
+                        ? "⟳ RECRÉER"
+                        : "▶ CRÉER LE LIVRABLE"}
                   </Button>
                 </div>
               </div>
@@ -458,6 +515,30 @@ export default function TaskDetail({ task }: { task: Task }) {
           />
         )}
       </div>
+
+      {/* Prompt Editor Modal */}
+      {promptEditorIdx !== null && livrables && (
+        <PromptEditorModal
+          taskId={task.id}
+          livrable={livrables.livrables[promptEditorIdx]}
+          onClose={() => setPromptEditorIdx(null)}
+          onSubmit={(prompt) =>
+            handleCreateLivrable(livrables.livrables[promptEditorIdx], promptEditorIdx, prompt)
+          }
+        />
+      )}
+
+      {/* Livrable Viewer Side Panel */}
+      {viewerLivrable?.aiContent && (
+        <LivrableViewer
+          titre={viewerLivrable.titre}
+          format={viewerLivrable.format}
+          aiContent={viewerLivrable.aiContent}
+          blobUrl={viewerLivrable.url}
+          generationId={viewerLivrable.generationId}
+          onClose={() => setViewerIdx(null)}
+        />
+      )}
     </div>
   );
 }

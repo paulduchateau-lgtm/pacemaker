@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { taskId, livrable } = await req.json();
+    const { taskId, livrable, customPrompt } = await req.json();
     const { titre, description, format } = livrable;
 
     // Fetch task
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       `${titre} ${description} ${task.label}`
     );
 
-    const prompt = buildCreateLivrablePrompt(
+    const defaultPrompt = buildCreateLivrablePrompt(
       { titre, description, format },
       task,
       week,
@@ -122,7 +122,19 @@ export async function POST(req: NextRequest) {
       ragContext
     );
 
+    const prompt = customPrompt || defaultPrompt;
     const aiContent = await callLLM(prompt, 4000);
+
+    // Track generation for learning system
+    const { trackGeneration } = await import("@/lib/corrections");
+    const generationId = await trackGeneration({
+      generationType: "livrables",
+      context: { taskId, titre, format },
+      prompt,
+      rawOutput: aiContent,
+      appliedRuleIds: [],
+      weekId: task.weekId,
+    });
 
     // Detect output format
     const outputFormat = detectFormat(format);
@@ -189,6 +201,8 @@ export async function POST(req: NextRequest) {
       filename,
       format: extension,
       docId,
+      generationId,
+      aiContent,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";

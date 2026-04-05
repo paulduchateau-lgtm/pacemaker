@@ -171,6 +171,42 @@ export interface Budget {
   echeances: Echeance[];
 }
 
+// ─── Apprentissage continu ─────────────────────────────
+
+export type GenerationType = "tasks" | "parse_cr" | "recalib" | "vision" | "livrables";
+export type CorrectionStatus = "active" | "superseded" | "archived";
+
+export interface Generation {
+  id: string;
+  generationType: GenerationType;
+  context: Record<string, unknown>;
+  prompt: string;
+  rawOutput: string;
+  appliedRules: string[];
+  weekId: number | null;
+  createdAt: string;
+}
+
+export interface Correction {
+  id: string;
+  generationId: string;
+  correctedOutput: string;
+  diffSummary: string;
+  ruleLearned: string;
+  generationType: GenerationType;
+  appliedCount: number;
+  status: CorrectionStatus;
+  createdAt: string;
+}
+
+export interface Rule {
+  id: string;
+  type: GenerationType;
+  text: string;
+  appliedCount: number;
+  createdAt: string;
+}
+
 export interface ProjectState {
   currentWeek: number;
   jh_consommes: number;

@@ -38,7 +38,17 @@ export async function POST(req: NextRequest) {
     // Extract with Claude Vision
     const extraction = await extractFromImage(blobUrl);
 
-    return NextResponse.json({ blobUrl, extraction });
+    // Track generation for learning
+    const { trackGeneration } = await import("@/lib/corrections");
+    const generationId = await trackGeneration({
+      generationType: "vision",
+      context: { filename, blobUrl },
+      prompt: "[Vision API — image extraction]",
+      rawOutput: JSON.stringify(extraction),
+      appliedRuleIds: [],
+    });
+
+    return NextResponse.json({ blobUrl, extraction, generationId, rawOutput: JSON.stringify(extraction) });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";
     return NextResponse.json({ error: message }, { status: 500 });

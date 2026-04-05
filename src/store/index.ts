@@ -6,6 +6,7 @@ import { createEventSlice, type EventSlice } from "./events";
 import { createProjectSlice, type ProjectSlice } from "./project";
 import { createDocSlice, type DocSlice } from "./docs";
 import { createScheduleSlice, type ScheduleSlice } from "./schedule";
+import { createCorrectionSlice, type CorrectionSlice } from "./corrections";
 
 export type StoreState = TaskSlice &
   RiskSlice &
@@ -13,7 +14,8 @@ export type StoreState = TaskSlice &
   EventSlice &
   ProjectSlice &
   DocSlice &
-  ScheduleSlice;
+  ScheduleSlice &
+  CorrectionSlice;
 
 export const useStore = create<StoreState>()((...a) => ({
   ...createTaskSlice(...a),
@@ -23,4 +25,5 @@ export const useStore = create<StoreState>()((...a) => ({
   ...createProjectSlice(...a),
   ...createDocSlice(...a),
   ...createScheduleSlice(...a),
+  ...createCorrectionSlice(...a),
 }));

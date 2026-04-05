@@ -38,6 +38,10 @@ export async function POST(req: NextRequest) {
       task.week_id as number
     );
 
+    const { getRelevantRules } = await import("@/lib/rules");
+    const { trackGeneration } = await import("@/lib/corrections");
+
+    const rules = await getRelevantRules("livrables", { weekId: week.id as number, taskLabel: task.label as string });
     const prompt = buildGenerateLivrablesPrompt(
       {
         label: task.label as string,
@@ -50,10 +54,21 @@ export async function POST(req: NextRequest) {
         title: week.title as string,
         weekId: week.id as number,
       },
-      ragContext
+      ragContext,
+      rules
     );
 
     const result = await callLLM(prompt, 2000);
+
+    const generationId = await trackGeneration({
+      generationType: "livrables",
+      context: { taskId, weekId: week.id as number },
+      prompt,
+      rawOutput: result,
+      appliedRuleIds: rules.map((r) => r.id),
+      weekId: week.id as number,
+    });
+
     const parsed = parseJSON<LivrableResult>(result);
 
     const livrables_generes = JSON.stringify(parsed);
@@ -62,7 +77,7 @@ export async function POST(req: NextRequest) {
       [livrables_generes, taskId]
     );
 
-    return NextResponse.json(parsed);
+    return NextResponse.json({ ...parsed, generationId, rawOutput: result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";
     return NextResponse.json({ error: message }, { status: 500 });
