@@ -25,6 +25,10 @@ export async function POST(req: NextRequest) {
       actions: JSON.parse(w.actions as string),
       livrables: JSON.parse(w.livrables_plan as string),
       owner: w.owner as string,
+      startDate: (w.start_date as string) || null,
+      endDate: (w.end_date as string) || null,
+      baselineStartDate: (w.baseline_start_date as string) || null,
+      baselineEndDate: (w.baseline_end_date as string) || null,
     }));
 
     const taskRows = await query("SELECT * FROM tasks");

@@ -41,10 +41,14 @@ export async function POST(req: NextRequest) {
       actions: JSON.parse(w.actions as string),
       livrables: JSON.parse(w.livrables_plan as string),
       owner: w.owner as string,
+      startDate: (w.start_date as string) || null,
+      endDate: (w.end_date as string) || null,
+      baselineStartDate: (w.baseline_start_date as string) || null,
+      baselineEndDate: (w.baseline_end_date as string) || null,
     };
 
     // Fetch full context for pre-filling
-    const allWeeks = (await query("SELECT * FROM weeks ORDER BY id")).map(
+    const allWeeks: Week[] = (await query("SELECT * FROM weeks ORDER BY id")).map(
       (r) => ({
         id: r.id as number,
         phase: r.phase as Week["phase"],
@@ -53,6 +57,10 @@ export async function POST(req: NextRequest) {
         actions: JSON.parse(r.actions as string),
         livrables: JSON.parse(r.livrables_plan as string),
         owner: r.owner as string,
+        startDate: (r.start_date as string) || null,
+        endDate: (r.end_date as string) || null,
+        baselineStartDate: (r.baseline_start_date as string) || null,
+        baselineEndDate: (r.baseline_end_date as string) || null,
       })
     );
 

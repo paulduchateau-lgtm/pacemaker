@@ -21,7 +21,8 @@ export type EventType =
   | "task"
   | "risk"
   | "budget"
-  | "vision";
+  | "vision"
+  | "schedule";
 
 export type RapportLot = 1 | 2 | 3;
 export type RapportComplexite = "haute" | "moyenne" | "basse";
@@ -38,6 +39,10 @@ export interface Week {
   actions: string[];
   livrables: string[];
   owner: string;
+  startDate: string | null;
+  endDate: string | null;
+  baselineStartDate: string | null;
+  baselineEndDate: string | null;
 }
 
 export interface TaskAttachment {
@@ -78,6 +83,21 @@ export interface Livrable {
   weekId: number;
   label: string;
   status: LivrableStatus;
+  deliveryDate: string | null;
+}
+
+export type ScheduleChangeType = "recalage_planifie" | "deviation";
+
+export interface ScheduleChange {
+  id: string;
+  weekId: number;
+  field: string;
+  oldValue: string | null;
+  newValue: string;
+  changeType: ScheduleChangeType;
+  cascaded: boolean;
+  reason: string;
+  createdAt: string;
 }
 
 export interface MissionEvent {
@@ -153,4 +173,5 @@ export interface Budget {
 export interface ProjectState {
   currentWeek: number;
   jh_consommes: number;
+  missionStartDate: string | null;
 }

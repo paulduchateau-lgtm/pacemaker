@@ -5,7 +5,11 @@ CREATE TABLE IF NOT EXISTS weeks (
   budget_jh REAL NOT NULL DEFAULT 0,
   actions TEXT NOT NULL DEFAULT '[]',
   livrables_plan TEXT NOT NULL DEFAULT '[]',
-  owner TEXT NOT NULL
+  owner TEXT NOT NULL,
+  start_date TEXT,
+  end_date TEXT,
+  baseline_start_date TEXT,
+  baseline_end_date TEXT
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -44,7 +48,8 @@ CREATE TABLE IF NOT EXISTS livrables (
   id TEXT PRIMARY KEY,
   week_id INTEGER NOT NULL REFERENCES weeks(id),
   label TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'planifié'
+  status TEXT NOT NULL DEFAULT 'planifié',
+  delivery_date TEXT
 );
 
 CREATE TABLE IF NOT EXISTS rapports (
@@ -96,6 +101,19 @@ CREATE INDEX IF NOT EXISTS idx_livrables_week ON livrables(week_id);
 CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
 CREATE INDEX IF NOT EXISTS idx_events_week ON events(week_id);
 CREATE INDEX IF NOT EXISTS idx_rapports_lot ON rapports(lot);
+CREATE TABLE IF NOT EXISTS schedule_changes (
+  id TEXT PRIMARY KEY,
+  week_id INTEGER NOT NULL REFERENCES weeks(id),
+  field TEXT NOT NULL DEFAULT 'start_date',
+  old_value TEXT,
+  new_value TEXT NOT NULL,
+  change_type TEXT NOT NULL DEFAULT 'deviation',
+  cascaded INTEGER NOT NULL DEFAULT 0,
+  reason TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_docs_type ON documents(type);
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON doc_chunks(doc_id);
 CREATE INDEX IF NOT EXISTS doc_chunks_embedding_idx ON doc_chunks(libsql_vector_idx(embedding));
+CREATE INDEX IF NOT EXISTS idx_schedule_changes_week ON schedule_changes(week_id);

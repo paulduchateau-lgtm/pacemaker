@@ -5,13 +5,15 @@ import { createLivrableSlice, type LivrableSlice } from "./livrables";
 import { createEventSlice, type EventSlice } from "./events";
 import { createProjectSlice, type ProjectSlice } from "./project";
 import { createDocSlice, type DocSlice } from "./docs";
+import { createScheduleSlice, type ScheduleSlice } from "./schedule";
 
 export type StoreState = TaskSlice &
   RiskSlice &
   LivrableSlice &
   EventSlice &
   ProjectSlice &
-  DocSlice;
+  DocSlice &
+  ScheduleSlice;
 
 export const useStore = create<StoreState>()((...a) => ({
   ...createTaskSlice(...a),
@@ -20,4 +22,5 @@ export const useStore = create<StoreState>()((...a) => ({
   ...createEventSlice(...a),
   ...createProjectSlice(...a),
   ...createDocSlice(...a),
+  ...createScheduleSlice(...a),
 }));

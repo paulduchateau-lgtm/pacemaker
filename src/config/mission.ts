@@ -22,6 +22,7 @@ export const INITIAL_WEEKS: Week[] = [
       "Backlog rapports priorisé",
     ],
     owner: "Paul",
+    startDate: null, endDate: null, baselineStartDate: null, baselineEndDate: null,
   },
   {
     id: 2,
@@ -42,6 +43,7 @@ export const INITIAL_WEEKS: Week[] = [
       "Dictionnaire de données",
     ],
     owner: "Paul + Paul B.",
+    startDate: null, endDate: null, baselineStartDate: null, baselineEndDate: null,
   },
   {
     id: 3,
@@ -58,6 +60,7 @@ export const INITIAL_WEEKS: Week[] = [
     ],
     livrables: ["Rapport R1 — Événements action sociale (validé)"],
     owner: "Paul + Paul B.",
+    startDate: null, endDate: null, baselineStartDate: null, baselineEndDate: null,
   },
   {
     id: 4,
@@ -76,6 +79,7 @@ export const INITIAL_WEEKS: Week[] = [
       "Rapport R3 — Centres de prévention (validé)",
     ],
     owner: "Paul + Paul B.",
+    startDate: null, endDate: null, baselineStartDate: null, baselineEndDate: null,
   },
   {
     id: 5,
@@ -94,6 +98,7 @@ export const INITIAL_WEEKS: Week[] = [
       "Rapport R5 — Politique habitat (finalisé, validé)",
     ],
     owner: "Paul + Paul B.",
+    startDate: null, endDate: null, baselineStartDate: null, baselineEndDate: null,
   },
   {
     id: 6,
@@ -114,6 +119,7 @@ export const INITIAL_WEEKS: Week[] = [
       "Rafraîchissements automatisés",
     ],
     owner: "Paul B.",
+    startDate: null, endDate: null, baselineStartDate: null, baselineEndDate: null,
   },
   {
     id: 7,
@@ -136,6 +142,7 @@ export const INITIAL_WEEKS: Week[] = [
       "PV de clôture mission",
     ],
     owner: "Paul",
+    startDate: null, endDate: null, baselineStartDate: null, baselineEndDate: null,
   },
 ];
 

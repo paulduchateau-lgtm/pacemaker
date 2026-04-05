@@ -5,6 +5,9 @@ import { useStore } from "@/store";
 import { getWeekTasks, getAllTaskStats } from "@/lib/computed";
 import WeekAccordion from "@/components/admin/WeekAccordion";
 import RecalibrateButton from "@/components/admin/RecalibrateButton";
+import MissionStartDatePicker from "@/components/admin/MissionStartDatePicker";
+import PlanningKpiRow from "@/components/admin/PlanningKpiRow";
+import TodayHeader from "@/components/ui/TodayHeader";
 import KpiCard from "@/components/ui/KpiCard";
 import Button from "@/components/ui/Button";
 
@@ -51,7 +54,7 @@ export default function AdminBacklog() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-medium" style={{ color: "var(--color-ink)" }}>
             Backlog Mission
@@ -62,6 +65,13 @@ export default function AdminBacklog() {
         </div>
         <RecalibrateButton />
       </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <TodayHeader />
+        <MissionStartDatePicker />
+      </div>
+
+      <PlanningKpiRow />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KpiCard label="TACHES" value={stats.total} sub={`${stats.done} terminées`} />

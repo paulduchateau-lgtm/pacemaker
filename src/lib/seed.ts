@@ -9,7 +9,9 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS weeks (
     id INTEGER PRIMARY KEY, phase TEXT NOT NULL, title TEXT NOT NULL,
     budget_jh REAL NOT NULL DEFAULT 0, actions TEXT NOT NULL DEFAULT '[]',
-    livrables_plan TEXT NOT NULL DEFAULT '[]', owner TEXT NOT NULL
+    livrables_plan TEXT NOT NULL DEFAULT '[]', owner TEXT NOT NULL,
+    start_date TEXT, end_date TEXT,
+    baseline_start_date TEXT, baseline_end_date TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY, week_id INTEGER NOT NULL REFERENCES weeks(id),
@@ -34,7 +36,8 @@ const CREATE_TABLES = [
   )`,
   `CREATE TABLE IF NOT EXISTS livrables (
     id TEXT PRIMARY KEY, week_id INTEGER NOT NULL REFERENCES weeks(id),
-    label TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'planifié'
+    label TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'planifié',
+    delivery_date TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS rapports (
     id TEXT PRIMARY KEY, label TEXT NOT NULL, etat TEXT NOT NULL,
@@ -67,6 +70,14 @@ const CREATE_TABLES = [
     embedding F32_BLOB(1024)
   )`,
   `CREATE INDEX IF NOT EXISTS idx_doc_chunks_doc ON doc_chunks(doc_id)`,
+  `CREATE TABLE IF NOT EXISTS schedule_changes (
+    id TEXT PRIMARY KEY, week_id INTEGER NOT NULL REFERENCES weeks(id),
+    field TEXT NOT NULL DEFAULT 'start_date', old_value TEXT,
+    new_value TEXT NOT NULL, change_type TEXT NOT NULL DEFAULT 'deviation',
+    cascaded INTEGER NOT NULL DEFAULT 0, reason TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_schedule_changes_week ON schedule_changes(week_id)`,
 ];
 
 export async function seed() {
