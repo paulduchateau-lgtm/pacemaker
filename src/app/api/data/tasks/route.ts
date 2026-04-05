@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const rows = await query(
     `SELECT id, week_id, label, description, owner, priority, status, source,
-            jh_estime, livrables_generes, created_at
+            jh_estime, livrables_generes, created_at, completed_at
      FROM tasks ORDER BY week_id, created_at`
   );
   const tasks = rows.map((r) => ({
@@ -21,6 +21,7 @@ export async function GET() {
     jhEstime: r.jh_estime,
     livrables_generes: r.livrables_generes || null,
     createdAt: r.created_at,
+    completedAt: r.completed_at || null,
   }));
 
   // Fetch attachments for all tasks
@@ -79,13 +80,14 @@ export async function POST(req: NextRequest) {
     source: r.source,
     livrables_generes: r.livrables_generes || null,
     createdAt: r.created_at,
+    completedAt: r.completed_at || null,
     attachments: [],
   });
 }
 
 export async function PATCH(req: NextRequest) {
   const body = await req.json();
-  const { id, status, description, livrables_generes } = body;
+  const { id, status, description, livrables_generes, completed_at } = body;
 
   const updates: string[] = [];
   const args: unknown[] = [];
@@ -93,6 +95,20 @@ export async function PATCH(req: NextRequest) {
   if (status !== undefined) {
     updates.push("status = ?");
     args.push(status);
+    // Auto-set completed_at when status → "fait" (unless explicitly provided)
+    if (status === "fait" && completed_at === undefined) {
+      updates.push("completed_at = ?");
+      args.push(new Date().toISOString().split("T")[0]);
+    }
+    // Clear completed_at if status moves away from "fait"
+    if (status !== "fait" && completed_at === undefined) {
+      updates.push("completed_at = ?");
+      args.push(null);
+    }
+  }
+  if (completed_at !== undefined) {
+    updates.push("completed_at = ?");
+    args.push(completed_at);
   }
   if (description !== undefined) {
     updates.push("description = ?");

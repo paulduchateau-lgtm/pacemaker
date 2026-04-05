@@ -64,6 +64,7 @@ export interface Task {
   status: TaskStatus;
   source: TaskSource;
   createdAt: string;
+  completedAt: string | null;
   jh_estime?: number;
   livrables_generes?: string;
   attachments?: TaskAttachment[];

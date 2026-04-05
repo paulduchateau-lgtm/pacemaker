@@ -20,14 +20,22 @@ interface LivrablesData {
 export default function TaskDetail({ task }: { task: Task }) {
   const updateTaskDescription = useStore((s) => s.updateTaskDescription);
   const updateTaskLivrables = useStore((s) => s.updateTaskLivrables);
+  const updateTaskCompletedAt = useStore((s) => s.updateTaskCompletedAt);
+  const addManualLivrable = useStore((s) => s.addManualLivrable);
+  const removeManualLivrable = useStore((s) => s.removeManualLivrable);
   const addTaskAttachment = useStore((s) => s.addTaskAttachment);
   const deleteTaskAttachment = useStore((s) => s.deleteTaskAttachment);
+  const fetchDocs = useStore((s) => s.fetchDocs);
 
   const [desc, setDesc] = useState(task.description || "");
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [creatingIdx, setCreatingIdx] = useState<number | null>(null);
+  const [addingLivrable, setAddingLivrable] = useState(false);
+  const [newTitre, setNewTitre] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newFormat, setNewFormat] = useState("docx");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const dirty = desc !== (task.description || "");
@@ -75,13 +83,23 @@ export default function TaskDetail({ task }: { task: Task }) {
       });
       if (res.ok) {
         const data = await res.json();
-        // Open the generated file in a new tab
         window.open(data.url, "_blank");
+        // Refresh docs list so the generated livrable appears
+        fetchDocs();
       }
     } catch {
       // silent
     }
     setCreatingIdx(null);
+  };
+
+  const handleAddManualLivrable = () => {
+    if (!newTitre.trim()) return;
+    addManualLivrable(task.id, newTitre, newDesc, newFormat);
+    setNewTitre("");
+    setNewDesc("");
+    setNewFormat("docx");
+    setAddingLivrable(false);
   };
 
   const handleFileUpload = async (
@@ -102,6 +120,29 @@ export default function TaskDetail({ task }: { task: Task }) {
       className="px-4 md:px-8 pb-4 pt-2 space-y-4"
       style={{ backgroundColor: "var(--color-warm, #F6F4F0)" }}
     >
+      {/* Completion date */}
+      {task.status === "fait" && (
+        <div className="flex items-center gap-3">
+          <span
+            className="mono-label"
+            style={{ color: "var(--color-green)" }}
+          >
+            ◆ RÉALISÉ LE
+          </span>
+          <input
+            type="date"
+            value={task.completedAt || ""}
+            onChange={(e) => updateTaskCompletedAt(task.id, e.target.value || null)}
+            className="text-sm bg-white border px-2 py-1 min-h-[36px]"
+            style={{
+              borderColor: "var(--color-border)",
+              borderRadius: "4px",
+              color: "var(--color-ink)",
+            }}
+          />
+        </div>
+      )}
+
       {/* Description */}
       <div>
         <label
@@ -131,9 +172,9 @@ export default function TaskDetail({ task }: { task: Task }) {
         )}
       </div>
 
-      {/* Livrables IA */}
+      {/* Livrables attendus */}
       <div>
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center gap-3 mb-2 flex-wrap">
           <span
             className="mono-label"
             style={{ color: "var(--color-muted)" }}
@@ -151,7 +192,73 @@ export default function TaskDetail({ task }: { task: Task }) {
                 ? "⟳ RÉGÉNÉRER"
                 : "▶ GÉNÉRER PAR IA"}
           </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setAddingLivrable(!addingLivrable)}
+          >
+            + AJOUTER
+          </Button>
         </div>
+
+        {/* Add manual livrable form */}
+        {addingLivrable && (
+          <div
+            className="bg-white border px-3 py-3 mb-2 space-y-2"
+            style={{
+              borderColor: "var(--color-green)",
+              borderRadius: "4px",
+            }}
+          >
+            <input
+              type="text"
+              value={newTitre}
+              onChange={(e) => setNewTitre(e.target.value)}
+              placeholder="Titre du livrable"
+              className="w-full text-sm border px-2 py-1 min-h-[36px]"
+              style={{
+                borderColor: "var(--color-border)",
+                borderRadius: "4px",
+                color: "var(--color-ink)",
+              }}
+            />
+            <input
+              type="text"
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              placeholder="Description (optionnel)"
+              className="w-full text-sm border px-2 py-1 min-h-[36px]"
+              style={{
+                borderColor: "var(--color-border)",
+                borderRadius: "4px",
+                color: "var(--color-ink)",
+              }}
+            />
+            <div className="flex items-center gap-2">
+              <select
+                value={newFormat}
+                onChange={(e) => setNewFormat(e.target.value)}
+                className="mono-label text-xs border px-2 py-1 min-h-[36px]"
+                style={{
+                  borderColor: "var(--color-border)",
+                  borderRadius: "4px",
+                  color: "var(--color-ink)",
+                }}
+              >
+                <option value="docx">DOCX</option>
+                <option value="xlsx">XLSX</option>
+                <option value="pptx">PPTX</option>
+                <option value="pdf">PDF</option>
+                <option value="autre">AUTRE</option>
+              </select>
+              <Button onClick={handleAddManualLivrable} disabled={!newTitre.trim()}>
+                VALIDER
+              </Button>
+              <Button variant="secondary" onClick={() => setAddingLivrable(false)}>
+                ANNULER
+              </Button>
+            </div>
+          </div>
+        )}
 
         {livrables && (
           <div className="space-y-2">
@@ -186,6 +293,14 @@ export default function TaskDetail({ task }: { task: Task }) {
                     </p>
                   </div>
                   <Badge label={l.format} color="var(--color-copper)" />
+                  <button
+                    onClick={() => removeManualLivrable(task.id, i)}
+                    className="text-xs px-2 py-1 opacity-40 hover:opacity-100 transition-opacity min-w-[32px] min-h-[32px] flex items-center justify-center"
+                    style={{ color: "var(--color-alert)" }}
+                    title="Supprimer"
+                  >
+                    ✕
+                  </button>
                 </div>
                 <div className="flex justify-end mt-2 pt-2 border-t" style={{ borderColor: "var(--color-border)" }}>
                   <Button
@@ -231,7 +346,7 @@ export default function TaskDetail({ task }: { task: Task }) {
             className="text-xs italic"
             style={{ color: "var(--color-muted)" }}
           >
-            {"Cliquez sur « Générer par IA » pour obtenir des livrables et un plan d'action."}
+            {"Cliquez sur « Générer par IA » ou « Ajouter » pour définir les livrables attendus."}
           </p>
         )}
       </div>
@@ -330,6 +445,12 @@ export default function TaskDetail({ task }: { task: Task }) {
           label={`CRÉÉ: ${task.createdAt?.split("T")[0] || ""}`}
           color="var(--color-muted)"
         />
+        {task.completedAt && (
+          <Badge
+            label={`FAIT: ${task.completedAt}`}
+            color="var(--color-green)"
+          />
+        )}
         {task.jh_estime && (
           <Badge
             label={`${task.jh_estime} JH`}

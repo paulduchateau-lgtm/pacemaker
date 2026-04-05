@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callLLM } from "@/lib/llm";
-import { query } from "@/lib/db";
+import { query, execute } from "@/lib/db";
 import { generateDocx, generateXlsx, generatePptx } from "@/lib/livrable-generator";
 import { put } from "@vercel/blob";
 import type { Week, Task, Risk, Budget } from "@/types";
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
       status: t.status as Task["status"],
       source: t.source as Task["source"],
       createdAt: t.created_at as string,
+      completedAt: (t.completed_at as string) || null,
     };
 
     // Fetch week
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
       status: r.status as Task["status"],
       source: r.source as Task["source"],
       createdAt: r.created_at as string,
+      completedAt: (r.completed_at as string) || null,
     }));
 
     const riskRows = await query("SELECT * FROM risks");
@@ -174,10 +176,19 @@ export async function POST(req: NextRequest) {
       contentType,
     });
 
+    // Index in documents table for discoverability
+    const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    await execute(
+      `INSERT INTO documents (id, title, type, source, week_id, blob_url, content, created_at)
+       VALUES (?, ?, 'spec', 'manual', ?, ?, ?, datetime('now'))`,
+      [docId, titre, task.weekId, blob.url, aiContent.substring(0, 2000)]
+    );
+
     return NextResponse.json({
       url: blob.url,
       filename,
       format: extension,
+      docId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";

@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   source TEXT NOT NULL DEFAULT 'manual',
   jh_estime REAL,
   livrables_generes TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  completed_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS task_attachments (

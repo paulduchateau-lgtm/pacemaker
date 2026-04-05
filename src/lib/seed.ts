@@ -20,7 +20,8 @@ const CREATE_TABLES = [
     priority TEXT NOT NULL DEFAULT 'moyenne', status TEXT NOT NULL DEFAULT 'à faire',
     source TEXT NOT NULL DEFAULT 'manual', jh_estime REAL,
     livrables_generes TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS task_attachments (
     id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,

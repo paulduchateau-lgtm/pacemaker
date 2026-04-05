@@ -76,5 +76,6 @@ function mapTask(r: Record<string, unknown>): Task {
     status: r.status as Task["status"],
     source: r.source as Task["source"],
     createdAt: r.created_at as string,
+    completedAt: (r.completed_at as string) || null,
   };
 }
