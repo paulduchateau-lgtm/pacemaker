@@ -13,9 +13,17 @@ const CREATE_TABLES = [
   )`,
   `CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY, week_id INTEGER NOT NULL REFERENCES weeks(id),
-    label TEXT NOT NULL, owner TEXT NOT NULL DEFAULT 'Paul',
+    label TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+    owner TEXT NOT NULL DEFAULT 'Paul',
     priority TEXT NOT NULL DEFAULT 'moyenne', status TEXT NOT NULL DEFAULT '\u00e0 faire',
     source TEXT NOT NULL DEFAULT 'manual', jh_estime REAL,
+    livrables_generes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS task_attachments (
+    id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL, blob_url TEXT NOT NULL,
+    content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE TABLE IF NOT EXISTS risks (
@@ -43,6 +51,7 @@ const CREATE_TABLES = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_tasks_week ON tasks(week_id)`,
   `CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`,
+  `CREATE INDEX IF NOT EXISTS idx_task_attachments ON task_attachments(task_id)`,
   `CREATE INDEX IF NOT EXISTS idx_livrables_week ON livrables(week_id)`,
   `CREATE INDEX IF NOT EXISTS idx_events_type ON events(type)`,
   `CREATE INDEX IF NOT EXISTS idx_rapports_lot ON rapports(lot)`,

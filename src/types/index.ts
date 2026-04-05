@@ -40,16 +40,28 @@ export interface Week {
   owner: string;
 }
 
+export interface TaskAttachment {
+  id: string;
+  taskId: string;
+  filename: string;
+  blobUrl: string;
+  contentType: string;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   weekId: number;
   label: string;
+  description: string;
   owner: TaskOwner;
   priority: TaskPriority;
   status: TaskStatus;
   source: TaskSource;
   createdAt: string;
   jh_estime?: number;
+  livrables_generes?: string;
+  attachments?: TaskAttachment[];
 }
 
 export interface Risk {

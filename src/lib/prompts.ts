@@ -1,5 +1,47 @@
 import type { Week, Task, Risk, MissionEvent } from "@/types";
 
+interface TaskForLivrables {
+  label: string;
+  description: string;
+  owner: string;
+  priority: string;
+}
+
+interface WeekContext {
+  phase: string;
+  title: string;
+  weekId: number;
+}
+
+export function buildGenerateLivrablesPrompt(
+  task: TaskForLivrables,
+  week: WeekContext,
+  ragContext: string = ""
+): string {
+  return `Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
+Mission : 7 semaines effectives, 30 jh budget r\u00e9el, forfait 60 jh / 53 900 \u20ac HT.
+${ragContext}
+Contexte : Semaine ${week.weekId} \u2014 "${week.title}" (phase ${week.phase})
+
+T\u00e2che \u00e0 analyser :
+- Libell\u00e9 : ${task.label}
+- Description : ${task.description || "Aucune description"}
+- Responsable : ${task.owner}
+- Priorit\u00e9 : ${task.priority}
+
+G\u00e9n\u00e8re les livrables concrets attendus pour cette t\u00e2che et un plan d'action.
+Pour chaque livrable, indique le titre, une description courte, et le format attendu
+(ex: "Document Word", "Fichier Power BI .pbix", "Email", "Pr\u00e9sentation PPT", "Tableau Excel", "Capture \u00e9cran", etc.)
+
+R\u00e9ponds UNIQUEMENT avec du JSON :
+{
+  "livrables": [
+    {"titre": "...", "description": "...", "format": "..."}
+  ],
+  "plan_action": "Description s\u00e9quentielle des \u00e9tapes pour r\u00e9aliser cette t\u00e2che"
+}`;
+}
+
 export function buildGenerateTasksPrompt(
   week: Week,
   existingTasks: Task[],

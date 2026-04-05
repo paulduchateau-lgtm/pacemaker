@@ -35,10 +35,10 @@ export default function WeekAccordion({
     >
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left"
+        className="w-full flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-4 py-3 text-left min-h-[44px]"
       >
         <span className="text-xs" style={{ color: phaseColor }}>
-          {open ? "&#x25BC;" : "&#x25B6;"}
+          {open ? "\u25BC" : "\u25B6"}
         </span>
         <span
           className="mono-label px-2 py-0.5"
@@ -46,16 +46,16 @@ export default function WeekAccordion({
         >
           S{week.id}
         </span>
-        <span className="text-sm font-medium flex-1" style={{ color: "var(--color-ink)" }}>
+        <span className="text-sm font-medium flex-1 min-w-0" style={{ color: "var(--color-ink)" }}>
           {week.title}
         </span>
-        <span className="mono-label" style={{ color: "var(--color-muted)" }}>
+        <span className="mono-label hidden md:inline" style={{ color: "var(--color-muted)" }}>
           {week.phase}
         </span>
         <span className="mono-label" style={{ color: "var(--color-muted)" }}>
           {week.budget_jh} JH
         </span>
-        <div className="w-24">
+        <div className="w-16 md:w-24">
           <ProgressBar pct={stats.pct} color={phaseColor} />
         </div>
         <span className="mono-label" style={{ color: "var(--color-muted)" }}>
@@ -70,7 +70,7 @@ export default function WeekAccordion({
               className="text-sm py-3 px-4 italic"
               style={{ color: "var(--color-muted)" }}
             >
-              Aucune t\u00e2che
+              {"Aucune t\u00e2che"}
             </p>
           )}
           {tasks.map((t) => (

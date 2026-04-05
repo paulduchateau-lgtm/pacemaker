@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
       id: r.id as string,
       weekId: r.week_id as number,
       label: r.label as string,
+      description: (r.description as string) || "",
       owner: r.owner as Task["owner"],
       priority: r.priority as Task["priority"],
       status: r.status as Task["status"],

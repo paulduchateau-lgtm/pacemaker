@@ -16,6 +16,7 @@ export default function AddTaskInline({ weekId }: { weekId: number }) {
     await addTask({
       weekId,
       label: label.trim(),
+      description: "",
       owner,
       priority,
       status: "à faire",
@@ -31,7 +32,7 @@ export default function AddTaskInline({ weekId }: { weekId: number }) {
         value={label}
         onChange={(e) => setLabel(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-        placeholder="Nouvelle t\u00e2che..."
+        placeholder="Nouvelle tâche..."
         className="flex-1 text-sm bg-transparent border-b px-1 py-1 outline-none"
         style={{
           borderColor: "var(--color-border)",
