@@ -18,8 +18,13 @@ export function buildGenerateLivrablesPrompt(
   task: TaskForLivrables,
   week: WeekContext,
   ragContext: string = "",
-  rules: Rule[] = []
+  rules: Rule[] = [],
+  existingLivrables: string[] = []
 ): string {
+  const existingBlock = existingLivrables.length > 0
+    ? `\nLIVRABLES DÉJÀ EXISTANTS DANS LA MISSION (ne pas les reproduire) :\n${existingLivrables.map((l) => `- ${l}`).join("\n")}\n`
+    : "";
+
   return `${buildRulesBlock(rules)}Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
 Mission : 7 semaines effectives, 30 jh budget réel, forfait 60 jh / 53 900 € HT.
 ${ragContext}
@@ -30,8 +35,13 @@ Tâche à analyser :
 - Description : ${task.description || "Aucune description"}
 - Responsable : ${task.owner}
 - Priorité : ${task.priority}
+${existingBlock}
+CONSIGNES IMPORTANTES :
+- Propose uniquement les livrables strictement nécessaires pour cette tâche (1 à 3 maximum).
+- Certaines tâches ne nécessitent aucun livrable formel — dans ce cas, retourne une liste vide.
+- Ne duplique jamais un livrable déjà existant dans la mission (voir liste ci-dessus).
+- Le plan d'action doit être synthétique : 2 à 4 étapes clés, pas de micro-détail.
 
-Génère les livrables concrets attendus pour cette tâche et un plan d'action.
 Pour chaque livrable, indique le titre, une description courte, et le format attendu
 (ex: "Document Word", "Fichier Power BI .pbix", "Email", "Présentation PPT", "Tableau Excel", "Capture écran", etc.)
 
@@ -40,7 +50,7 @@ Réponds UNIQUEMENT avec du JSON :
   "livrables": [
     {"titre": "...", "description": "...", "format": "..."}
   ],
-  "plan_action": "Description séquentielle des étapes pour réaliser cette tâche"
+  "plan_action": "Étapes clés pour réaliser cette tâche (2-4 étapes)"
 }`;
 }
 

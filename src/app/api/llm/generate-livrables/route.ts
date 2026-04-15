@@ -41,6 +41,25 @@ export async function POST(req: NextRequest) {
     const { getRelevantRules } = await import("@/lib/rules");
     const { trackGeneration } = await import("@/lib/corrections");
 
+    // Fetch existing deliverables from other tasks to avoid duplicates
+    const allTasks = await query(
+      "SELECT livrables_generes FROM tasks WHERE id != ? AND livrables_generes IS NOT NULL",
+      [taskId]
+    );
+    const existingLivrables: string[] = [];
+    for (const t of allTasks) {
+      try {
+        const parsed = JSON.parse(t.livrables_generes as string);
+        if (parsed?.livrables) {
+          for (const l of parsed.livrables) {
+            if (l.titre) existingLivrables.push(l.titre);
+          }
+        }
+      } catch {
+        // skip malformed
+      }
+    }
+
     const rules = await getRelevantRules("livrables", { weekId: week.id as number, taskLabel: task.label as string });
     const prompt = buildGenerateLivrablesPrompt(
       {
@@ -55,7 +74,8 @@ export async function POST(req: NextRequest) {
         weekId: week.id as number,
       },
       ragContext,
-      rules
+      rules,
+      existingLivrables
     );
 
     const result = await callLLM(prompt, 2000);
