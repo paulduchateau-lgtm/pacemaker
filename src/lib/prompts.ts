@@ -195,10 +195,15 @@ export function buildCreateLivrablePrompt(
   ctx: CreateLivrableContext,
   ragContext: string = "",
   rules: Rule[] = [],
-  missionContext: string = ""
+  missionContext: string = "",
+  themeHints: string = ""
 ): string {
   const activeRisks = ctx.risks.filter((r) => r.status === "actif");
   const weekTasks = ctx.tasks.filter((t) => t.weekId === week.id);
+  const fmt = livrable.format.toLowerCase();
+  const isXlsx = /(excel|xlsx|tableur|classeur|tableau)/.test(fmt);
+  const isPptx = /(ppt|présentation|presentation|slide|diapo|deck)/.test(fmt);
+  const targetFormat = isXlsx ? "xlsx" : isPptx ? "pptx" : "docx";
 
   return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un consultant senior en charge de la rédaction d'un livrable.
 ${ragContext}
@@ -221,13 +226,47 @@ ${week.livrables.length > 0 ? week.livrables.map((l) => `- ${l}`).join("\n") : "
 LIVRABLE À CRÉER :
 - Titre : ${livrable.titre}
 - Description : ${livrable.description}
-- Format cible : ${livrable.format}
+- Format cible : ${livrable.format} (rendu final : ${targetFormat})
 - Tâche source : ${task.label}
 ${task.description ? `- Détail tâche : ${task.description}` : ""}
 
-Rédige le contenu complet de ce livrable, prêt à être utilisé.
-Utilise des sections avec des titres (## Titre de section).
-Pré-remplis avec toutes les données connues du projet (risques, planning, tâches, livrables, etc.).
-Le document doit être professionnel, structuré, et directement exploitable par le client.
-Rédige en français. Ne mets pas de marqueurs de placeholder — utilise les vraies données projet.`;
+${themeHints ? `${themeHints}\n\n` : ""}FORMAT DE SORTIE — STRICT :
+Réponds UNIQUEMENT avec un objet JSON valide conforme au schéma LivrablePayload ci-dessous.
+Aucun texte avant, aucun texte après, aucun bloc markdown \`\`\`.
+
+SCHÉMA (TypeScript) :
+{
+  "title": string,                 // titre du livrable
+  "subtitle"?: string,
+  "docType"?: "CR" | "Annexe" | "Deck" | "Note" | "Rapport" | string,
+  "format": "docx" | "xlsx" | "pptx",  // utilise "${targetFormat}"
+  "blocks": Block[]                // requis sauf si sheets fourni (xlsx)
+  "sheets"?: { "name": string, "blocks": Block[] }[]  // uniquement pour xlsx multi-onglets
+}
+
+Types de Block disponibles :
+- { "kind": "cover", "title": string, "subtitle"?: string,
+    "meta"?: { "client"?: string, "emitter"?: string, "date"?: string, "version"?: string, "confidential"?: string } }
+- { "kind": "toc", "items": string[] }
+- { "kind": "section", "level": 1 | 2 | 3, "title": string }
+- { "kind": "paragraph", "text": string, "emphasis"?: boolean }
+- { "kind": "bullet_list", "items": string[] }
+- { "kind": "numbered_list", "items": string[] }
+- { "kind": "kpi_grid", "cols": 2 | 3 | 4,
+    "cards": { "label": string, "value": string, "delta"?: string, "tone": "positive"|"neutral"|"critical" }[] }
+- { "kind": "table", "headers": string[],
+    "rows": (string | { "value": string, "tone": "positive"|"neutral"|"critical" })[][],
+    "totals"?: string[] }
+- { "kind": "callout", "text": string, "tone": "positive"|"neutral"|"critical" }
+- { "kind": "star_note", "text": string }
+- { "kind": "footer_legal", "text": string }
+
+CONSIGNES :
+- Rédige en français, ton professionnel, directement exploitable par le client.
+- Pré-remplis avec les VRAIES données projet (risques, tâches, planning, chiffres). Pas de placeholder.
+- Commence typiquement par un bloc "cover" (toujours pour un Deck/Rapport ; optionnel pour une Note courte).
+- Structure avec des "section" level=1 pour les grandes parties, level=2 pour les sous-parties.
+${targetFormat === "xlsx" ? '- Pour un livrable Excel, préfère "sheets" avec onglets nommés (ex: "Lisez-moi", "Synthèse", "Données", "Suivi").' : ""}
+${targetFormat === "pptx" ? '- Pour une présentation, chaque "section" level=1 démarre une nouvelle slide. Garde 3-6 slides maximum.' : ""}
+- Termine par un "footer_legal" si une mention légale est pertinente.`;
 }

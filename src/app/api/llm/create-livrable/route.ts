@@ -1,241 +1,108 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callLLM } from "@/lib/llm";
-import { query, execute } from "@/lib/db";
-import { generateDocx, generateXlsx, generatePptx } from "@/lib/livrable-generator";
-import { buildCreateLivrablePrompt } from "@/lib/prompts";
+import { execute } from "@/lib/db";
 import { put } from "@vercel/blob";
-import type { Week, Task, Risk, Budget } from "@/types";
+import { buildCreateLivrablePrompt } from "@/lib/prompts";
+import { loadLivrableContext } from "@/lib/livrables/context";
+import { parseLivrablePayload } from "@/lib/livrables/validate";
+import { markdownToPayload } from "@/lib/livrables/fallback";
+import { renderLivrable, detectFormat } from "@/lib/livrables/render";
+import { getLivrableTheme } from "@/lib/livrables/theme-store";
+import { getTheme } from "@/lib/livrables/themes";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { taskId, livrable, customPrompt } = await req.json();
+    const { taskId, livrable, customPrompt, themeId } = await req.json();
     const { titre, description, format } = livrable;
 
-    // Fetch task
-    const taskRows = await query("SELECT * FROM tasks WHERE id = ?", [taskId]);
-    if (taskRows.length === 0) {
+    const ctx = await loadLivrableContext(taskId);
+    if (!ctx) {
       return NextResponse.json({ error: "Tâche non trouvée" }, { status: 404 });
     }
-    const t = taskRows[0];
-    const task: Task = {
-      id: t.id as string,
-      weekId: t.week_id as number,
-      label: t.label as string,
-      description: (t.description as string) || "",
-      owner: t.owner as Task["owner"],
-      priority: t.priority as Task["priority"],
-      status: t.status as Task["status"],
-      source: t.source as Task["source"],
-      createdAt: t.created_at as string,
-      completedAt: (t.completed_at as string) || null,
-    };
 
-    // Fetch week
-    const weekRows = await query("SELECT * FROM weeks WHERE id = ?", [task.weekId]);
-    const w = weekRows[0];
-    const week: Week = {
-      id: w.id as number,
-      phase: w.phase as Week["phase"],
-      title: w.title as string,
-      budget_jh: w.budget_jh as number,
-      actions: JSON.parse(w.actions as string),
-      livrables: JSON.parse(w.livrables_plan as string),
-      owner: w.owner as string,
-      startDate: (w.start_date as string) || null,
-      endDate: (w.end_date as string) || null,
-      baselineStartDate: (w.baseline_start_date as string) || null,
-      baselineEndDate: (w.baseline_end_date as string) || null,
-    };
-
-    // Fetch full context for pre-filling
-    const allWeeks: Week[] = (await query("SELECT * FROM weeks ORDER BY id")).map(
-      (r) => ({
-        id: r.id as number,
-        phase: r.phase as Week["phase"],
-        title: r.title as string,
-        budget_jh: r.budget_jh as number,
-        actions: JSON.parse(r.actions as string),
-        livrables: JSON.parse(r.livrables_plan as string),
-        owner: r.owner as string,
-        startDate: (r.start_date as string) || null,
-        endDate: (r.end_date as string) || null,
-        baselineStartDate: (r.baseline_start_date as string) || null,
-        baselineEndDate: (r.baseline_end_date as string) || null,
-      })
-    );
-
-    const allTasks = (await query("SELECT * FROM tasks")).map((r) => ({
-      id: r.id as string,
-      weekId: r.week_id as number,
-      label: r.label as string,
-      description: (r.description as string) || "",
-      owner: r.owner as Task["owner"],
-      priority: r.priority as Task["priority"],
-      status: r.status as Task["status"],
-      source: r.source as Task["source"],
-      createdAt: r.created_at as string,
-      completedAt: (r.completed_at as string) || null,
-    }));
-
-    const riskRows = await query("SELECT * FROM risks");
-    const risks: Risk[] = riskRows.map((r) => ({
-      id: r.id as string,
-      label: r.label as string,
-      impact: r.impact as number,
-      probability: r.probability as number,
-      status: r.status as Risk["status"],
-      mitigation: r.mitigation as string,
-    }));
-
-    const budgetRow = await query(
-      "SELECT value FROM project WHERE key = 'budget'"
-    );
-    const budget: Budget = budgetRow.length
-      ? JSON.parse(budgetRow[0].value as string)
-      : { vendu_jh: 60, reel_cible_jh: 30, forfait_ht: 53900, tjm_affiche: 898, tjm_reel_cible: 1797, echeances: [] };
-
-    const cwRow = await query(
-      "SELECT value FROM project WHERE key = 'current_week'"
-    );
-    const currentWeek = cwRow.length ? parseInt(cwRow[0].value as string) : 1;
-
-    const ctx = {
-      weeks: allWeeks,
-      tasks: allTasks,
-      risks,
-      budget,
-      currentWeek,
-    };
-
-    // Generate content with AI
     const { getRelevantContext } = await import("@/lib/rag");
     const { getRelevantRules } = await import("@/lib/rules");
     const { getMissionContext } = await import("@/lib/mission-context");
 
-    const ragContext = await getRelevantContext(
-      `${titre} ${description} ${task.label}`
-    );
+    const ragContext = await getRelevantContext(`${titre} ${description} ${ctx.task.label}`);
     const rules = await getRelevantRules("livrables", {
-      weekId: week.id,
-      taskLabel: task.label,
+      weekId: ctx.week.id,
+      taskLabel: ctx.task.label,
     });
     const missionContext = await getMissionContext();
 
+    // Thème : paramètre explicite > projet > défaut
+    const resolvedThemeId = themeId || (await getLivrableTheme());
+    const theme = getTheme(resolvedThemeId);
+
     const defaultPrompt = buildCreateLivrablePrompt(
       { titre, description, format },
-      task,
-      week,
-      ctx,
+      ctx.task,
+      ctx.week,
+      { weeks: ctx.allWeeks, tasks: ctx.allTasks, risks: ctx.risks, budget: ctx.budget, currentWeek: ctx.currentWeek },
       ragContext,
       rules,
-      missionContext
+      missionContext,
+      theme.promptHints
     );
-
     const prompt = customPrompt || defaultPrompt;
-    const aiContent = await callLLM(prompt, 4000);
 
-    // Track generation for learning system
+    // 1re tentative
+    let aiContent = await callLLM(prompt, 4000);
+    let payload = parseLivrablePayload(aiContent);
+
+    // Retry si JSON invalide
+    if (!payload) {
+      const retryPrompt = `${prompt}\n\nTA RÉPONSE PRÉCÉDENTE N'ÉTAIT PAS UN JSON VALIDE.
+Retourne UNIQUEMENT un objet JSON conforme au schéma LivrablePayload, sans aucun texte autour ni balise \`\`\`.`;
+      aiContent = await callLLM(retryPrompt, 4000);
+      payload = parseLivrablePayload(aiContent);
+    }
+
+    // Fallback final : on traite la sortie comme markdown
+    if (!payload) {
+      payload = markdownToPayload(aiContent, { title: titre, subtitle: description });
+    }
+
+    const extension = detectFormat(format);
+    const result = await renderLivrable(payload, { themeId: resolvedThemeId, format: extension });
+
+    const blob = await put(`pacemaker/livrables/${result.filename}`, result.buffer, {
+      access: "public",
+      contentType: result.contentType,
+    });
+
     const { trackGeneration } = await import("@/lib/corrections");
     const generationId = await trackGeneration({
       generationType: "livrables",
-      context: { taskId, titre, format },
+      context: { taskId, titre, format, themeId: resolvedThemeId },
       prompt,
       rawOutput: aiContent,
       appliedRuleIds: [],
-      weekId: task.weekId,
+      weekId: ctx.task.weekId,
     });
 
-    // Detect output format
-    const outputFormat = detectFormat(format);
-    let fileBuffer: Buffer;
-    let contentType: string;
-    let extension: string;
-
-    switch (outputFormat) {
-      case "xlsx":
-        fileBuffer = await generateXlsx(
-          { titre, description, format },
-          task,
-          week,
-          ctx,
-          aiContent
-        );
-        contentType =
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        extension = "xlsx";
-        break;
-      case "pptx":
-        fileBuffer = await generatePptx(
-          { titre, description, format },
-          task,
-          week,
-          ctx,
-          aiContent
-        );
-        contentType =
-          "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-        extension = "pptx";
-        break;
-      default:
-        fileBuffer = await generateDocx(
-          { titre, description, format },
-          task,
-          week,
-          ctx,
-          aiContent
-        );
-        contentType =
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        extension = "docx";
-        break;
-    }
-
-    // Upload to Blob
-    const filename = `${sanitize(titre)}.${extension}`;
-    const blob = await put(`pacemaker/livrables/${filename}`, fileBuffer, {
-      access: "public",
-      contentType,
-    });
-
-    // Index in documents table for discoverability
+    // Indexe en base documentaire pour la découverte
     const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     await execute(
       `INSERT INTO documents (id, title, type, source, week_id, blob_url, content, created_at)
        VALUES (?, ?, 'spec', 'manual', ?, ?, ?, datetime('now'))`,
-      [docId, titre, task.weekId, blob.url, aiContent.substring(0, 2000)]
+      [docId, titre, ctx.task.weekId, blob.url, aiContent.substring(0, 2000)]
     );
 
     return NextResponse.json({
       url: blob.url,
-      filename,
-      format: extension,
+      filename: result.filename,
+      format: result.extension,
       docId,
       generationId,
-      aiContent,
+      aiContent, // JSON brut du payload — consommé par la modale de correction
+      themeId: resolvedThemeId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
-function detectFormat(format: string): "docx" | "xlsx" | "pptx" {
-  const f = format.toLowerCase();
-  if (f.includes("excel") || f.includes("xlsx") || f.includes("tableur") || f.includes("tableau")) {
-    return "xlsx";
-  }
-  if (f.includes("ppt") || f.includes("présentation") || f.includes("presentation") || f.includes("slide") || f.includes("diapo")) {
-    return "pptx";
-  }
-  return "docx";
-}
-
-function sanitize(s: string): string {
-  return s
-    .replace(/[^a-zA-Z0-9àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ\s_-]/g, "")
-    .replace(/\s+/g, "_")
-    .slice(0, 60);
-}
-

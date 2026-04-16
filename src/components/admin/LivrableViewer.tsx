@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Badge from "@/components/ui/Badge";
 import CorrectionButton from "@/components/corrections/CorrectionButton";
+import LivrableBlocks from "@/components/admin/LivrableBlocks";
 import { useStore } from "@/store";
+import { parseLivrablePayload } from "@/lib/livrables/validate";
 
 interface Props {
   titre: string;
@@ -137,6 +139,7 @@ export default function LivrableViewer({ titre, format, aiContent, blobUrl, gene
     fetchDocs();
   }
 
+  const structured = parseLivrablePayload(currentContent);
   const lines = currentContent.split("\n");
 
   return (
@@ -204,9 +207,13 @@ export default function LivrableViewer({ titre, format, aiContent, blobUrl, gene
 
         {/* Content */}
         <div className="flex-1 overflow-auto px-4 py-4">
-          <ul className="list-none p-0 m-0">
-            {lines.map((line, i) => renderLine(line, i))}
-          </ul>
+          {structured ? (
+            <LivrableBlocks blocks={structured.blocks ?? structured.sheets?.flatMap((s) => s.blocks) ?? []} />
+          ) : (
+            <ul className="list-none p-0 m-0">
+              {lines.map((line, i) => renderLine(line, i))}
+            </ul>
+          )}
         </div>
 
         {/* Footer */}
@@ -218,7 +225,7 @@ export default function LivrableViewer({ titre, format, aiContent, blobUrl, gene
             LITE●OPS — Pacemaker
           </span>
           <span className="font-mono text-xs" style={{ color: "var(--color-muted)" }}>
-            {lines.length} lignes
+            {structured ? `${(structured.blocks ?? []).length} blocs` : `${lines.length} lignes`}
           </span>
         </div>
       </div>
