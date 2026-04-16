@@ -7,9 +7,14 @@ interface Props {
   generationId: string;
   rawOutput: string;
   onCorrected?: () => void;
+  /**
+   * Callback optionnelle appelée avec le texte corrigé, AVANT l'extraction de règle.
+   * Permet au parent d'appliquer la correction au contenu source (DB + blob).
+   */
+  onApply?: (correctedOutput: string) => Promise<void>;
 }
 
-export default function CorrectionButton({ generationId, rawOutput, onCorrected }: Props) {
+export default function CorrectionButton({ generationId, rawOutput, onCorrected, onApply }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -37,6 +42,7 @@ export default function CorrectionButton({ generationId, rawOutput, onCorrected 
             setOpen(false);
             onCorrected?.();
           }}
+          onApply={onApply}
         />
       )}
     </>

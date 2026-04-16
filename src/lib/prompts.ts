@@ -1,4 +1,4 @@
-import type { Week, Task, Risk, MissionEvent, Rule } from "@/types";
+import type { Week, Task, Risk, MissionEvent, Rule, Budget } from "@/types";
 import { buildRulesBlock } from "./rules";
 
 interface TaskForLivrables {
@@ -14,19 +14,24 @@ interface WeekContext {
   weekId: number;
 }
 
+function buildMissionBlock(missionContext: string): string {
+  if (!missionContext || !missionContext.trim()) return "";
+  return `=== CONTEXTE MISSION ===\n${missionContext.trim()}\n=== FIN CONTEXTE ===\n\n`;
+}
+
 export function buildGenerateLivrablesPrompt(
   task: TaskForLivrables,
   week: WeekContext,
   ragContext: string = "",
   rules: Rule[] = [],
-  existingLivrables: string[] = []
+  existingLivrables: string[] = [],
+  missionContext: string = ""
 ): string {
   const existingBlock = existingLivrables.length > 0
     ? `\nLIVRABLES DÉJÀ EXISTANTS DANS LA MISSION (ne pas les reproduire) :\n${existingLivrables.map((l) => `- ${l}`).join("\n")}\n`
     : "";
 
-  return `${buildRulesBlock(rules)}Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
-Mission : 7 semaines effectives, 30 jh budget réel, forfait 60 jh / 53 900 € HT.
+  return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un assistant de pilotage de mission de consulting.
 ${ragContext}
 Contexte : Semaine ${week.weekId} — "${week.title}" (phase ${week.phase})
 
@@ -59,15 +64,15 @@ export function buildGenerateTasksPrompt(
   existingTasks: Task[],
   prevWeekTasks: Task[],
   ragContext: string = "",
-  rules: Rule[] = []
+  rules: Rule[] = [],
+  missionContext: string = ""
 ): string {
   const blocked = prevWeekTasks.filter((t) => t.status === "bloqué");
   const notDone = prevWeekTasks.filter(
     (t) => t.status !== "fait" && t.status !== "bloqué"
   );
 
-  return `${buildRulesBlock(rules)}Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
-Mission : 7 semaines effectives, 30 jh budget réel, forfait 60 jh / 53 900 € HT.
+  return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un assistant de pilotage de mission de consulting.
 ${ragContext}
 Semaine ${week.id} — "${week.title}" (phase ${week.phase})
 Budget : ${week.budget_jh} jh
@@ -92,9 +97,10 @@ export function buildParseUploadPrompt(
   uploadText: string,
   weekId: number,
   ragContext: string = "",
-  rules: Rule[] = []
+  rules: Rule[] = [],
+  missionContext: string = ""
 ): string {
-  return `${buildRulesBlock(rules)}Tu es un assistant de pilotage de mission de consulting BI Power BI pour Agirc-Arrco (DAS).
+  return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un assistant de pilotage de mission de consulting.
 ${ragContext}
 Voici un compte-rendu de réunion pour la semaine ${weekId} :
 
@@ -126,7 +132,8 @@ interface RecalibrationState {
 export function buildRecalibrationPrompt(
   state: RecalibrationState,
   ragContext: string = "",
-  rules: Rule[] = []
+  rules: Rule[] = [],
+  missionContext: string = ""
 ): string {
   const weekSummaries = state.weeks.map((w) => {
     const weekTasks = state.tasks.filter((t) => t.weekId === w.id);
@@ -142,8 +149,7 @@ export function buildRecalibrationPrompt(
   const activeRisks = state.risks.filter((r) => r.status === "actif");
   const decisions = state.events.filter((e) => e.type === "decision");
 
-  return `${buildRulesBlock(rules)}Tu es un assistant de pilotage de mission BI Power BI pour Agirc-Arrco (DAS).
-Mission : 7 semaines, 30 jh budget réel, forfait 60 jh / 53 900 € HT.
+  return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un assistant de pilotage de mission de consulting.
 La mission est actuellement à la semaine ${state.currentWeek}.
 ${ragContext}
 État complet du projet :
@@ -172,4 +178,56 @@ Réponds UNIQUEMENT avec du JSON :
   },
   "carryover_notes": "Explication"
 }`;
+}
+
+interface CreateLivrableContext {
+  weeks: Week[];
+  tasks: Task[];
+  risks: Risk[];
+  budget: Budget;
+  currentWeek: number;
+}
+
+export function buildCreateLivrablePrompt(
+  livrable: { titre: string; description: string; format: string },
+  task: Task,
+  week: Week,
+  ctx: CreateLivrableContext,
+  ragContext: string = "",
+  rules: Rule[] = [],
+  missionContext: string = ""
+): string {
+  const activeRisks = ctx.risks.filter((r) => r.status === "actif");
+  const weekTasks = ctx.tasks.filter((t) => t.weekId === week.id);
+
+  return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un consultant senior en charge de la rédaction d'un livrable.
+${ragContext}
+
+CONTEXTE PROJET :
+- Semaine courante : S${ctx.currentWeek}
+- Phase : ${week.phase} — "${week.title}"
+
+RISQUES ACTIFS :
+${activeRisks.length > 0 ? activeRisks.map((r) => `- ${r.label} (impact: ${r.impact}/5, proba: ${r.probability}/5) → ${r.mitigation}`).join("\n") : "Aucun risque actif."}
+
+TÂCHES SEMAINE ${week.id} :
+${weekTasks.length > 0 ? weekTasks.map((t) => `- [${t.status}] ${t.label} (${t.owner})`).join("\n") : "Aucune tâche."}
+
+LIVRABLES PRÉVUS SEMAINE ${week.id} :
+${week.livrables.length > 0 ? week.livrables.map((l) => `- ${l}`).join("\n") : "Aucun livrable planifié."}
+
+---
+
+LIVRABLE À CRÉER :
+- Titre : ${livrable.titre}
+- Description : ${livrable.description}
+- Format cible : ${livrable.format}
+- Tâche source : ${task.label}
+${task.description ? `- Détail tâche : ${task.description}` : ""}
+
+Rédige le contenu complet de ce livrable, prêt à être utilisé.
+Utilise des sections avec des titres (## Titre de section).
+Pré-remplis avec toutes les données connues du projet (risques, planning, tâches, livrables, etc.).
+Le document doit être professionnel, structuré, et directement exploitable par le client.
+Rédige en français. Ne mets pas de marqueurs de placeholder — utilise les vraies données projet.`;
 }

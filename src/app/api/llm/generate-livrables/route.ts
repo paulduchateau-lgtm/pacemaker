@@ -61,6 +61,8 @@ export async function POST(req: NextRequest) {
     }
 
     const rules = await getRelevantRules("livrables", { weekId: week.id as number, taskLabel: task.label as string });
+    const { getMissionContext } = await import("@/lib/mission-context");
+    const missionContext = await getMissionContext();
     const prompt = buildGenerateLivrablesPrompt(
       {
         label: task.label as string,
@@ -75,7 +77,8 @@ export async function POST(req: NextRequest) {
       },
       ragContext,
       rules,
-      existingLivrables
+      existingLivrables,
+      missionContext
     );
 
     const result = await callLLM(prompt, 2000);

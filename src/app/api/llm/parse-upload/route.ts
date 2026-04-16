@@ -25,10 +25,12 @@ export async function POST(req: NextRequest) {
     const { getRelevantContext, indexDocument } = await import("@/lib/rag");
     const { getRelevantRules } = await import("@/lib/rules");
     const { trackGeneration } = await import("@/lib/corrections");
+    const { getMissionContext } = await import("@/lib/mission-context");
 
     const ragContext = await getRelevantContext(text, weekId);
     const rules = await getRelevantRules("parse_cr", { weekId });
-    const prompt = buildParseUploadPrompt(text, weekId, ragContext, rules);
+    const missionContext = await getMissionContext();
+    const prompt = buildParseUploadPrompt(text, weekId, ragContext, rules, missionContext);
     const result = await callLLM(prompt, 3000);
 
     const generationId = await trackGeneration({

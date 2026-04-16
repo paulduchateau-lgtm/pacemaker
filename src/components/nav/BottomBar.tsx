@@ -14,6 +14,7 @@ const MORE_ITEMS = [
   { href: "/admin/risques", label: "Risques" },
   { href: "/admin/journal", label: "Journal" },
   { href: "/admin/regles", label: "Règles" },
+  { href: "/admin/contexte", label: "Contexte" },
   { href: "/client", label: "Vue client" },
 ];
 

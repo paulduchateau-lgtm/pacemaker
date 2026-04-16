@@ -529,13 +529,15 @@ export default function TaskDetail({ task }: { task: Task }) {
       )}
 
       {/* Livrable Viewer Side Panel */}
-      {viewerLivrable?.aiContent && (
+      {viewerLivrable?.aiContent && viewerIdx !== null && (
         <LivrableViewer
           titre={viewerLivrable.titre}
           format={viewerLivrable.format}
           aiContent={viewerLivrable.aiContent}
           blobUrl={viewerLivrable.url}
           generationId={viewerLivrable.generationId}
+          taskId={task.id}
+          livrableIndex={viewerIdx}
           onClose={() => setViewerIdx(null)}
         />
       )}

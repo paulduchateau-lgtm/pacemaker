@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { buildCreateLivrablePrompt } from "@/lib/prompts";
 import type { Week, Task, Risk, Budget } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -69,51 +70,31 @@ export async function POST(req: NextRequest) {
     const budgetRow = await query("SELECT value FROM project WHERE key = 'budget'");
     const budget: Budget = budgetRow.length
       ? JSON.parse(budgetRow[0].value as string)
-      : { vendu_jh: 60, reel_cible_jh: 30, forfait_ht: 53900, tjm_affiche: 898, tjm_reel_cible: 1797, echeances: [] };
+      : { vendu_jh: 0, reel_cible_jh: 0, forfait_ht: 0, tjm_affiche: 0, tjm_reel_cible: 0, echeances: [] };
 
     const cwRow = await query("SELECT value FROM project WHERE key = 'current_week'");
     const currentWeek = cwRow.length ? parseInt(cwRow[0].value as string) : 1;
 
     const { getRelevantContext } = await import("@/lib/rag");
+    const { getRelevantRules } = await import("@/lib/rules");
+    const { getMissionContext } = await import("@/lib/mission-context");
+
     const ragContext = await getRelevantContext(`${titre} ${description} ${task.label}`);
+    const rules = await getRelevantRules("livrables", {
+      weekId: week.id,
+      taskLabel: task.label,
+    });
+    const missionContext = await getMissionContext();
 
-    const activeRisks = risks.filter((r) => r.status === "actif");
-    const weekTasks = allTasks.filter((at) => at.weekId === week.id);
-
-    const prompt = `Tu es un consultant senior en transformation BI Power BI pour l'Agirc-Arrco (Direction de l'Action Sociale).
-Mission : 7 semaines effectives, 30 jh budget réel, forfait 60 jh / 53 900 € HT.
-${ragContext}
-
-CONTEXTE PROJET COMPLET :
-- Semaine courante : S${currentWeek} / 7
-- Phase : ${week.phase} — "${week.title}"
-- Budget : ${budget.forfait_ht.toLocaleString("fr-FR")} € HT, ${budget.vendu_jh} jh vendus, ${budget.reel_cible_jh} jh réels
-- Client : Agirc-Arrco, Direction de l'Action Sociale (DAS)
-- Contacts : Benoît Baret, Nathalie Lazardeux
-
-RISQUES ACTIFS :
-${activeRisks.map((r) => `- ${r.label} (impact: ${r.impact}/5, proba: ${r.probability}/5) → ${r.mitigation}`).join("\n")}
-
-TÂCHES SEMAINE ${week.id} :
-${weekTasks.map((wt) => `- [${wt.status}] ${wt.label} (${wt.owner})`).join("\n")}
-
-LIVRABLES PRÉVUS SEMAINE ${week.id} :
-${week.livrables.map((l) => `- ${l}`).join("\n")}
-
----
-
-LIVRABLE À CRÉER :
-- Titre : ${titre}
-- Description : ${description}
-- Format cible : ${format}
-- Tâche source : ${task.label}
-${task.description ? `- Détail tâche : ${task.description}` : ""}
-
-Rédige le contenu complet de ce livrable, prêt à être utilisé.
-Utilise des sections avec des titres (## Titre de section).
-Pré-remplis avec toutes les données connues du projet (risques, planning, budget, tâches, livrables, etc.).
-Le document doit être professionnel, structuré, et directement exploitable par le client.
-Rédige en français. Ne mets pas de marqueurs de placeholder — utilise les vraies données projet.`;
+    const prompt = buildCreateLivrablePrompt(
+      { titre, description, format },
+      task,
+      week,
+      { weeks: [], tasks: allTasks, risks, budget, currentWeek },
+      ragContext,
+      rules,
+      missionContext
+    );
 
     return NextResponse.json({ prompt });
   } catch (error) {

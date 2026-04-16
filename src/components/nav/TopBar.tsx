@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/admin/capture", label: "Capture" },
   { href: "/admin/docs", label: "Docs" },
   { href: "/admin/regles", label: "Règles" },
+  { href: "/admin/contexte", label: "Contexte" },
 ];
 
 export default function TopBar() {

@@ -95,7 +95,7 @@ export async function generateDocx(
     new Paragraph({
       children: [
         new TextRun({
-          text: `Mission Agirc-Arrco DAS — ${week.phase} — S${week.id}`,
+          text: `${week.phase} — S${week.id}`,
           font: "JetBrains Mono",
           size: 16,
           color: "8A8680",
@@ -299,7 +299,7 @@ export async function generateXlsx(
   titleRow.height = 30;
 
   mainSheet.addRow([
-    `Mission Agirc-Arrco DAS — ${week.phase} — S${week.id}`,
+    `${week.phase} — S${week.id}`,
   ]);
   mainSheet.getRow(2).font = {
     name: "JetBrains Mono",
@@ -407,7 +407,7 @@ export async function generatePptx(
     fontFace: "DM Sans",
   });
   titleSlide.addText(
-    `Mission Agirc-Arrco DAS — ${week.phase} — S${week.id}`,
+    `${week.phase} — S${week.id}`,
     {
       x: 0.5,
       y: 3.2,

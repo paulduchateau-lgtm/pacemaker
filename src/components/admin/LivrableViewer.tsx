@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Badge from "@/components/ui/Badge";
 import CorrectionButton from "@/components/corrections/CorrectionButton";
+import { useStore } from "@/store";
 
 interface Props {
   titre: string;
@@ -10,6 +11,10 @@ interface Props {
   aiContent: string;
   blobUrl?: string;
   generationId?: string;
+  /** Id de la tâche propriétaire du livrable (pour appliquer la correction) */
+  taskId?: string;
+  /** Index du livrable dans task.livrables_generes.livrables (pour appliquer la correction) */
+  livrableIndex?: number;
   onClose: () => void;
 }
 
@@ -86,8 +91,17 @@ function renderLine(line: string, idx: number) {
   );
 }
 
-export default function LivrableViewer({ titre, format, aiContent, blobUrl, generationId, onClose }: Props) {
+export default function LivrableViewer({ titre, format, aiContent, blobUrl, generationId, taskId, livrableIndex, onClose }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const [currentContent, setCurrentContent] = useState(aiContent);
+  const [currentBlobUrl, setCurrentBlobUrl] = useState(blobUrl);
+  const updateTaskLivrables = useStore((s) => s.updateTaskLivrables);
+  const fetchDocs = useStore((s) => s.fetchDocs);
+
+  useEffect(() => {
+    setCurrentContent(aiContent);
+    setCurrentBlobUrl(blobUrl);
+  }, [aiContent, blobUrl]);
 
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
@@ -97,7 +111,33 @@ export default function LivrableViewer({ titre, format, aiContent, blobUrl, gene
     return () => document.removeEventListener("keydown", handleEscape);
   }, [onClose]);
 
-  const lines = aiContent.split("\n");
+  async function applyCorrection(correctedOutput: string) {
+    if (!taskId || livrableIndex === undefined) {
+      // Pas de contexte suffisant — la correction ne sera que stockée comme règle
+      return;
+    }
+    const res = await fetch("/api/llm/update-livrable-content", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taskId,
+        livrableIndex,
+        correctedContent: correctedOutput,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Erreur inconnue" }));
+      throw new Error(err.error || "Impossible d'appliquer la correction");
+    }
+    const data = await res.json();
+    setCurrentContent(correctedOutput);
+    setCurrentBlobUrl(data.url);
+    updateTaskLivrables(taskId, data.livrables_generes);
+    // Refresh doc library so the new blob URL is reflected
+    fetchDocs();
+  }
+
+  const lines = currentContent.split("\n");
 
   return (
     <>
@@ -142,9 +182,9 @@ export default function LivrableViewer({ titre, format, aiContent, blobUrl, gene
           className="px-4 py-2 flex items-center gap-3 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--color-border)" }}
         >
-          {blobUrl && (
+          {currentBlobUrl && (
             <a
-              href={blobUrl}
+              href={currentBlobUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="font-mono text-xs uppercase tracking-wider px-3 py-1.5 border min-h-[36px] flex items-center"
@@ -156,7 +196,8 @@ export default function LivrableViewer({ titre, format, aiContent, blobUrl, gene
           {generationId && (
             <CorrectionButton
               generationId={generationId}
-              rawOutput={aiContent}
+              rawOutput={currentContent}
+              onApply={taskId && livrableIndex !== undefined ? applyCorrection : undefined}
             />
           )}
         </div>

@@ -1,11 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { VisionExtraction } from "@/types";
+import { getMissionContext } from "./mission-context";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
-const VISION_PROMPT = `Tu analyses une photo prise lors d'un atelier ou d'une réunion de mission consulting BI Power BI.
+const VISION_PROMPT_CORE = `Tu analyses une photo prise lors d'un atelier ou d'une réunion de la mission décrite ci-dessus.
 La photo peut être : un tableau blanc, des Post-it, une slide projetée, un écran, un cahier, un schéma manuscrit.
 
 Extrais le contenu structuré suivant :
@@ -26,6 +27,9 @@ Réponds UNIQUEMENT avec du JSON valide :
 export async function extractFromImage(
   imageUrl: string
 ): Promise<VisionExtraction> {
+  const missionContext = await getMissionContext();
+  const prompt = `=== CONTEXTE MISSION ===\n${missionContext}\n=== FIN CONTEXTE ===\n\n${VISION_PROMPT_CORE}`;
+
   const message = await client.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 2000,
@@ -37,7 +41,7 @@ export async function extractFromImage(
             type: "image",
             source: { type: "url", url: imageUrl },
           },
-          { type: "text", text: VISION_PROMPT },
+          { type: "text", text: prompt },
         ],
       },
     ],

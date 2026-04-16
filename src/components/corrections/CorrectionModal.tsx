@@ -8,9 +8,14 @@ interface Props {
   rawOutput: string;
   onClose: () => void;
   onSaved: () => void;
+  /**
+   * Callback optionnelle appelée avec le texte corrigé AVANT l'extraction de règle.
+   * Permet au parent d'appliquer la correction au livrable source (DB + blob).
+   */
+  onApply?: (correctedOutput: string) => Promise<void>;
 }
 
-export default function CorrectionModal({ generationId, rawOutput, onClose, onSaved }: Props) {
+export default function CorrectionModal({ generationId, rawOutput, onClose, onSaved, onApply }: Props) {
   const [corrected, setCorrected] = useState(rawOutput);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
@@ -20,11 +25,23 @@ export default function CorrectionModal({ generationId, rawOutput, onClose, onSa
     if (corrected === rawOutput) return;
     setSaving(true);
     try {
+      // 1. Applique la correction au contenu source si le parent le supporte
+      if (onApply) {
+        setToast("Application de la correction...");
+        await onApply(corrected);
+      }
+      // 2. Extrait la règle apprise
+      setToast("Extraction de la règle...");
       const result = await submitCorrection(generationId, corrected);
-      setToast(`Règle apprise : ${result.ruleLearned}`);
+      setToast(
+        onApply
+          ? `Livrable mis à jour — règle apprise : ${result.ruleLearned}`
+          : `Règle apprise : ${result.ruleLearned}`
+      );
       setTimeout(onSaved, 2000);
-    } catch {
-      setToast("Erreur lors de l'analyse");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erreur";
+      setToast(`Erreur : ${msg}`);
       setSaving(false);
     }
   }

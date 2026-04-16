@@ -68,18 +68,20 @@ export async function POST(req: NextRequest) {
     const { getRelevantContext } = await import("@/lib/rag");
     const { getRelevantRules } = await import("@/lib/rules");
     const { trackGeneration } = await import("@/lib/corrections");
+    const { getMissionContext } = await import("@/lib/mission-context");
 
     const ragContext = await getRelevantContext(
-      `recalibration semaine ${currentWeek} mission BI Power BI Agirc-Arrco`
+      `recalibration semaine ${currentWeek}`
     );
     const rules = await getRelevantRules("recalib", { currentWeek });
+    const missionContext = await getMissionContext();
     const prompt = buildRecalibrationPrompt({
       currentWeek,
       weeks,
       tasks,
       risks,
       events,
-    }, ragContext, rules);
+    }, ragContext, rules, missionContext);
     const result = await callLLM(prompt, 4000);
 
     const generationId = await trackGeneration({

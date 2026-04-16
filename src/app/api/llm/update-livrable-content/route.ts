@@ -1,17 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callLLM } from "@/lib/llm";
 import { query, execute } from "@/lib/db";
-import { generateDocx, generateXlsx, generatePptx } from "@/lib/livrable-generator";
-import { buildCreateLivrablePrompt } from "@/lib/prompts";
+import {
+  generateDocx,
+  generateXlsx,
+  generatePptx,
+} from "@/lib/livrable-generator";
 import { put } from "@vercel/blob";
 import type { Week, Task, Risk, Budget } from "@/types";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Applique un contenu corrigé à un livrable existant :
+ * - remplace l'aiContent dans task.livrables_generes.livrables[index]
+ * - régénère le fichier (DOCX/XLSX/PPTX) avec le nouveau contenu
+ * - uploade le nouveau blob (remplace l'URL précédente dans l'entrée livrable)
+ */
 export async function POST(req: NextRequest) {
   try {
-    const { taskId, livrable, customPrompt } = await req.json();
-    const { titre, description, format } = livrable;
+    const { taskId, livrableIndex, correctedContent } = await req.json();
+
+    if (
+      typeof taskId !== "string" ||
+      typeof livrableIndex !== "number" ||
+      typeof correctedContent !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "taskId, livrableIndex et correctedContent requis" },
+        { status: 400 }
+      );
+    }
 
     // Fetch task
     const taskRows = await query("SELECT * FROM tasks WHERE id = ?", [taskId]);
@@ -19,6 +37,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Tâche non trouvée" }, { status: 404 });
     }
     const t = taskRows[0];
+
+    const livrablesData = t.livrables_generes
+      ? JSON.parse(t.livrables_generes as string)
+      : null;
+
+    if (
+      !livrablesData ||
+      !Array.isArray(livrablesData.livrables) ||
+      livrableIndex < 0 ||
+      livrableIndex >= livrablesData.livrables.length
+    ) {
+      return NextResponse.json(
+        { error: "Livrable introuvable à cet index" },
+        { status: 404 }
+      );
+    }
+
+    const livrable = livrablesData.livrables[livrableIndex];
     const task: Task = {
       id: t.id as string,
       weekId: t.week_id as number,
@@ -49,7 +85,7 @@ export async function POST(req: NextRequest) {
       baselineEndDate: (w.baseline_end_date as string) || null,
     };
 
-    // Fetch full context for pre-filling
+    // Fetch context for regeneration
     const allWeeks: Week[] = (await query("SELECT * FROM weeks ORDER BY id")).map(
       (r) => ({
         id: r.id as number,
@@ -94,7 +130,7 @@ export async function POST(req: NextRequest) {
     );
     const budget: Budget = budgetRow.length
       ? JSON.parse(budgetRow[0].value as string)
-      : { vendu_jh: 60, reel_cible_jh: 30, forfait_ht: 53900, tjm_affiche: 898, tjm_reel_cible: 1797, echeances: [] };
+      : { vendu_jh: 0, reel_cible_jh: 0, forfait_ht: 0, tjm_affiche: 0, tjm_reel_cible: 0, echeances: [] };
 
     const cwRow = await query(
       "SELECT value FROM project WHERE key = 'current_week'"
@@ -109,111 +145,64 @@ export async function POST(req: NextRequest) {
       currentWeek,
     };
 
-    // Generate content with AI
-    const { getRelevantContext } = await import("@/lib/rag");
-    const { getRelevantRules } = await import("@/lib/rules");
-    const { getMissionContext } = await import("@/lib/mission-context");
-
-    const ragContext = await getRelevantContext(
-      `${titre} ${description} ${task.label}`
-    );
-    const rules = await getRelevantRules("livrables", {
-      weekId: week.id,
-      taskLabel: task.label,
-    });
-    const missionContext = await getMissionContext();
-
-    const defaultPrompt = buildCreateLivrablePrompt(
-      { titre, description, format },
-      task,
-      week,
-      ctx,
-      ragContext,
-      rules,
-      missionContext
-    );
-
-    const prompt = customPrompt || defaultPrompt;
-    const aiContent = await callLLM(prompt, 4000);
-
-    // Track generation for learning system
-    const { trackGeneration } = await import("@/lib/corrections");
-    const generationId = await trackGeneration({
-      generationType: "livrables",
-      context: { taskId, titre, format },
-      prompt,
-      rawOutput: aiContent,
-      appliedRuleIds: [],
-      weekId: task.weekId,
-    });
-
-    // Detect output format
-    const outputFormat = detectFormat(format);
+    // Detect format and regenerate file with corrected content
+    const outputFormat = detectFormat(livrable.format || "docx");
     let fileBuffer: Buffer;
     let contentType: string;
     let extension: string;
 
+    const livrableSpec = {
+      titre: livrable.titre as string,
+      description: (livrable.description as string) || "",
+      format: (livrable.format as string) || "docx",
+    };
+
     switch (outputFormat) {
       case "xlsx":
-        fileBuffer = await generateXlsx(
-          { titre, description, format },
-          task,
-          week,
-          ctx,
-          aiContent
-        );
+        fileBuffer = await generateXlsx(livrableSpec, task, week, ctx, correctedContent);
         contentType =
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         extension = "xlsx";
         break;
       case "pptx":
-        fileBuffer = await generatePptx(
-          { titre, description, format },
-          task,
-          week,
-          ctx,
-          aiContent
-        );
+        fileBuffer = await generatePptx(livrableSpec, task, week, ctx, correctedContent);
         contentType =
           "application/vnd.openxmlformats-officedocument.presentationml.presentation";
         extension = "pptx";
         break;
       default:
-        fileBuffer = await generateDocx(
-          { titre, description, format },
-          task,
-          week,
-          ctx,
-          aiContent
-        );
+        fileBuffer = await generateDocx(livrableSpec, task, week, ctx, correctedContent);
         contentType =
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         extension = "docx";
         break;
     }
 
-    // Upload to Blob
-    const filename = `${sanitize(titre)}.${extension}`;
+    // Upload new blob (Vercel Blob auto-appends random suffix so old URL stays accessible)
+    const filename = `${sanitize(livrableSpec.titre)}.${extension}`;
     const blob = await put(`pacemaker/livrables/${filename}`, fileBuffer, {
       access: "public",
       contentType,
     });
 
-    // Index in documents table for discoverability
-    const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    // Update livrable entry in task JSON
+    livrablesData.livrables[livrableIndex] = {
+      ...livrable,
+      aiContent: correctedContent,
+      url: blob.url,
+    };
+
     await execute(
-      `INSERT INTO documents (id, title, type, source, week_id, blob_url, content, created_at)
-       VALUES (?, ?, 'spec', 'manual', ?, ?, ?, datetime('now'))`,
-      [docId, titre, task.weekId, blob.url, aiContent.substring(0, 2000)]
+      "UPDATE tasks SET livrables_generes = ? WHERE id = ?",
+      [JSON.stringify(livrablesData), taskId]
     );
 
     return NextResponse.json({
+      ok: true,
       url: blob.url,
       filename,
       format: extension,
-      docId,
-      generationId,
-      aiContent,
+      livrables_generes: JSON.stringify(livrablesData),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";
@@ -238,4 +227,3 @@ function sanitize(s: string): string {
     .replace(/\s+/g, "_")
     .slice(0, 60);
 }
-

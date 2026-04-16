@@ -41,13 +41,15 @@ export async function POST(req: NextRequest) {
     const { getRelevantContext } = await import("@/lib/rag");
     const { getRelevantRules } = await import("@/lib/rules");
     const { trackGeneration } = await import("@/lib/corrections");
+    const { getMissionContext } = await import("@/lib/mission-context");
 
     const ragContext = await getRelevantContext(
       `${week.title} ${week.phase} ${week.actions.join(" ")}`,
       weekId
     );
     const rules = await getRelevantRules("tasks", { weekId, phase: week.phase });
-    const prompt = buildGenerateTasksPrompt(week, existingTasks, prevWeekTasks, ragContext, rules);
+    const missionContext = await getMissionContext();
+    const prompt = buildGenerateTasksPrompt(week, existingTasks, prevWeekTasks, ragContext, rules, missionContext);
     const result = await callLLM(prompt, 2000);
 
     const generationId = await trackGeneration({
