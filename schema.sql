@@ -184,6 +184,50 @@ CREATE INDEX IF NOT EXISTS idx_corrections_gen_id ON corrections(generation_id);
 CREATE INDEX IF NOT EXISTS idx_corrections_type ON corrections(generation_type, status);
 CREATE INDEX IF NOT EXISTS rules_embedding_idx ON corrections(libsql_vector_idx(rule_embedding));
 
+-- =========================================================================
+-- Chantier 2 (modèle de décision enrichi) : table `decisions` avec motifs,
+-- alternatives, auteur, confiance, statut. `decision_links` relie une décision
+-- aux entités (task/risk/livrable/week/document) qu'elle impacte ou dont elle
+-- dérive. Les events type='decision' restent pour compat legacy.
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS decisions (
+  id TEXT PRIMARY KEY,
+  mission_id TEXT NOT NULL REFERENCES missions(id),
+  statement TEXT NOT NULL,
+  rationale TEXT,
+  rationale_source TEXT NOT NULL DEFAULT 'native'
+    CHECK(rationale_source IN ('native','legacy_no_rationale','user_added_later','llm_inferred')),
+  alternatives TEXT,
+  author TEXT NOT NULL DEFAULT 'paul',
+  confidence REAL,
+  status TEXT NOT NULL DEFAULT 'actée'
+    CHECK(status IN ('proposée','actée','révisée','annulée')),
+  source_type TEXT NOT NULL DEFAULT 'manual'
+    CHECK(source_type IN ('manual','parse_cr','vision','agent','legacy_event')),
+  source_ref TEXT,
+  revised_from TEXT REFERENCES decisions(id),
+  week_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  acted_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_decisions_mission ON decisions(mission_id, acted_at);
+CREATE INDEX IF NOT EXISTS idx_decisions_status ON decisions(mission_id, status);
+CREATE INDEX IF NOT EXISTS idx_decisions_author ON decisions(mission_id, author);
+
+CREATE TABLE IF NOT EXISTS decision_links (
+  id TEXT PRIMARY KEY,
+  decision_id TEXT NOT NULL REFERENCES decisions(id) ON DELETE CASCADE,
+  entity_type TEXT NOT NULL
+    CHECK(entity_type IN ('task','risk','livrable','week','document')),
+  entity_id TEXT NOT NULL,
+  link_type TEXT NOT NULL DEFAULT 'impacts'
+    CHECK(link_type IN ('impacts','derives_from','blocks','supersedes')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_decision_links_decision ON decision_links(decision_id);
+CREATE INDEX IF NOT EXISTS idx_decision_links_entity ON decision_links(entity_type, entity_id);
+
 -- Index composites mission-first (chantier 1)
 CREATE INDEX IF NOT EXISTS idx_weeks_mission ON weeks(mission_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_mission_week ON tasks(mission_id, week_id);

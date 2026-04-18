@@ -75,12 +75,33 @@ export default function CapturePage() {
             }),
           });
         } else if (el.type === "decision") {
-          await fetch("/api/data/events", {
+          // Évènement legacy (pour les consommateurs qui regardent events) +
+          // row `decisions` enrichie (source de vérité depuis le chantier 2).
+          const evtRes = await fetch("/api/data/events", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               type: "decision",
               label: el.content,
+              weekId: currentWeek,
+            }),
+          });
+          let sourceRef: string | null = null;
+          try {
+            const evt = await evtRes.json();
+            sourceRef = evt?.id ?? null;
+          } catch {
+            /* ignore */
+          }
+          await fetch("/api/decisions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              statement: el.content,
+              author: "paul",
+              status: "actée",
+              sourceType: "vision",
+              sourceRef,
               weekId: currentWeek,
             }),
           });

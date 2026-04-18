@@ -6,8 +6,17 @@ import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
+interface RichDecision {
+  statement: string;
+  rationale?: string | null;
+  alternatives?: string[] | null;
+  author?: "paul" | "paul_b" | "client";
+}
+
 interface ParseResult {
-  decisions: string[];
+  // L'ancien prompt renvoyait `decisions: string[]` ; le nouveau renvoie des
+  // objets enrichis. On accepte les deux formats pour ne rien casser.
+  decisions: Array<RichDecision | string>;
   actions: { label: string; owner: string; priority: string }[];
   risks: { label: string; impact: number; probability: number }[];
   opportunities: string[];
@@ -76,12 +85,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    for (const decision of parsed.decisions) {
-      const id = `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const { createDecision } = await import("@/lib/decisions");
+    for (const raw of parsed.decisions) {
+      const d: RichDecision =
+        typeof raw === "string" ? { statement: raw } : raw;
+      if (!d.statement || !d.statement.trim()) continue;
+      const eventId = `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       await execute(
         "INSERT INTO events (id, type, label, week_id, content, mission_id) VALUES (?, 'decision', ?, ?, ?, ?)",
-        [id, decision, weekId, decision, mission.id],
+        [eventId, d.statement, weekId, d.rationale ?? d.statement, mission.id],
       );
+      try {
+        await createDecision(mission.id, {
+          statement: d.statement,
+          rationale: d.rationale ?? null,
+          alternatives: d.alternatives?.length ? d.alternatives : null,
+          author: d.author ?? "paul",
+          status: "actée",
+          sourceType: "parse_cr",
+          sourceRef: eventId,
+          weekId,
+        });
+      } catch {
+        // si createDecision échoue (DB inconsistante, etc.) on garde au moins
+        // l'event pour ne rien perdre — le chantier 02 peut être rejoué.
+      }
     }
 
     for (const opp of parsed.opportunities) {
