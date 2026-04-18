@@ -122,6 +122,21 @@ export async function POST(req: NextRequest) {
       [id, mission.id],
     );
     const r = rows[0];
+
+    // Refonte recalib : un nouveau doc (CR, spec, note) peut changer le plan.
+    // On déclenche une recalibration downstream async (debounce 30s).
+    try {
+      const { kickOffAutoRecalibration } = await import("@/lib/recalibration");
+      await kickOffAutoRecalibration({
+        missionId: mission.id,
+        scope: "downstream_only",
+        trigger: "auto_on_input",
+        triggerRef: id,
+      });
+    } catch {
+      /* best-effort */
+    }
+
     return NextResponse.json({
       id: r.id,
       title: r.title,
