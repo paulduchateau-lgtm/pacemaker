@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, execute } from "@/lib/db";
+import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const rows = await query("SELECT * FROM weeks ORDER BY id");
+export async function GET(req: NextRequest) {
+  const mission = await resolveActiveMission(req);
+  const rows = await query(
+    "SELECT * FROM weeks WHERE mission_id = ? ORDER BY id",
+    [mission.id],
+  );
   const weeks = rows.map((r) => ({
     id: r.id,
     phase: r.phase,
@@ -22,12 +27,19 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  const mission = await resolveActiveMission(req);
   const { id, startDate, endDate } = await req.json();
   if (startDate !== undefined) {
-    await execute("UPDATE weeks SET start_date = ? WHERE id = ?", [startDate, id]);
+    await execute(
+      "UPDATE weeks SET start_date = ? WHERE id = ? AND mission_id = ?",
+      [startDate, id, mission.id],
+    );
   }
   if (endDate !== undefined) {
-    await execute("UPDATE weeks SET end_date = ? WHERE id = ?", [endDate, id]);
+    await execute(
+      "UPDATE weeks SET end_date = ? WHERE id = ? AND mission_id = ?",
+      [endDate, id, mission.id],
+    );
   }
   return NextResponse.json({ ok: true });
 }

@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, execute } from "@/lib/db";
 import { indexDocument } from "@/lib/rag";
+import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const mission = await resolveActiveMission(req);
   const rows = await query(
-    "SELECT * FROM documents ORDER BY created_at DESC"
+    "SELECT * FROM documents WHERE mission_id = ? ORDER BY created_at DESC",
+    [mission.id],
   );
   const docs = rows.map((r) => ({
     id: r.id,
@@ -23,12 +26,13 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const mission = await resolveActiveMission(req);
     const body = await req.json();
     const id = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
     await execute(
-      `INSERT INTO documents (id, title, type, source, week_id, blob_url, content)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO documents (id, title, type, source, week_id, blob_url, content, mission_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         body.title,
@@ -37,19 +41,22 @@ export async function POST(req: NextRequest) {
         body.weekId || null,
         body.blobUrl || null,
         body.content || "",
-      ]
+        mission.id,
+      ],
     );
 
-    // Index for RAG
     if (body.content && body.content.trim().length > 0) {
       try {
         await indexDocument(id, body.content);
       } catch {
-        // RAG indexing is optional
+        // RAG optionnelle
       }
     }
 
-    const rows = await query("SELECT * FROM documents WHERE id = ?", [id]);
+    const rows = await query(
+      "SELECT * FROM documents WHERE id = ? AND mission_id = ?",
+      [id, mission.id],
+    );
     const r = rows[0];
     return NextResponse.json({
       id: r.id,

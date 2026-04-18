@@ -9,15 +9,17 @@ import { markdownToPayload } from "@/lib/livrables/fallback";
 import { renderLivrable, detectFormat } from "@/lib/livrables/render";
 import { getLivrableTheme } from "@/lib/livrables/theme-store";
 import { getTheme } from "@/lib/livrables/themes";
+import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
+    const mission = await resolveActiveMission(req);
     const { taskId, livrable, customPrompt, themeId } = await req.json();
     const { titre, description, format } = livrable;
 
-    const ctx = await loadLivrableContext(taskId);
+    const ctx = await loadLivrableContext(taskId, mission.id);
     if (!ctx) {
       return NextResponse.json({ error: "Tâche non trouvée" }, { status: 404 });
     }
@@ -26,63 +28,95 @@ export async function POST(req: NextRequest) {
     const { getRelevantRules } = await import("@/lib/rules");
     const { getMissionContext } = await import("@/lib/mission-context");
 
-    const ragContext = await getRelevantContext(`${titre} ${description} ${ctx.task.label}`);
-    const rules = await getRelevantRules("livrables", {
-      weekId: ctx.week.id,
-      taskLabel: ctx.task.label,
-    });
-    const missionContext = await getMissionContext();
+    const ragContext = await getRelevantContext(
+      `${titre} ${description} ${ctx.task.label}`,
+      { missionId: mission.id },
+    );
+    const rules = await getRelevantRules(
+      "livrables",
+      { weekId: ctx.week.id, taskLabel: ctx.task.label },
+      { missionId: mission.id },
+    );
+    const missionContext = await getMissionContext({ missionId: mission.id });
 
-    // Thème : paramètre explicite > projet > défaut
-    const resolvedThemeId = themeId || (await getLivrableTheme());
+    // Thème : paramètre explicite > mission > défaut
+    const resolvedThemeId =
+      themeId || (await getLivrableTheme({ missionId: mission.id }));
     const theme = getTheme(resolvedThemeId);
 
     const defaultPrompt = buildCreateLivrablePrompt(
       { titre, description, format },
       ctx.task,
       ctx.week,
-      { weeks: ctx.allWeeks, tasks: ctx.allTasks, risks: ctx.risks, budget: ctx.budget, currentWeek: ctx.currentWeek },
+      {
+        weeks: ctx.allWeeks,
+        tasks: ctx.allTasks,
+        risks: ctx.risks,
+        budget: ctx.budget,
+        currentWeek: ctx.currentWeek,
+      },
       ragContext,
       rules,
       missionContext,
-      theme.promptHints
+      theme.promptHints,
     );
     const prompt = customPrompt || defaultPrompt;
 
-    // 1re tentative
-    console.log(`[create-livrable] start taskId=${taskId} theme=${resolvedThemeId} format=${format}`);
+    console.log(
+      `[create-livrable] start taskId=${taskId} mission=${mission.slug} theme=${resolvedThemeId} format=${format}`,
+    );
     const t0 = Date.now();
-    let aiContent = await callLLM(prompt, 4000);
-    console.log(`[create-livrable] llm#1 done in ${Date.now() - t0}ms, ${aiContent.length} chars`);
+    const aiContent = await callLLM(prompt, 4000);
+    console.log(
+      `[create-livrable] llm#1 done in ${Date.now() - t0}ms, ${aiContent.length} chars`,
+    );
     let payload = parseLivrablePayload(aiContent);
     let usedFallback = false;
 
-    // Fallback : on traite la sortie comme markdown (pas de retry LLM — coût trop élevé).
-    // Le parser est déjà tolérant (fences + accolades équilibrées).
     if (!payload) {
-      console.warn(`[create-livrable] JSON invalide, fallback markdown. Preview: ${aiContent.slice(0, 200)}`);
-      payload = markdownToPayload(aiContent, { title: titre, subtitle: description });
+      console.warn(
+        `[create-livrable] JSON invalide, fallback markdown. Preview: ${aiContent.slice(0, 200)}`,
+      );
+      payload = markdownToPayload(aiContent, {
+        title: titre,
+        subtitle: description,
+      });
       usedFallback = true;
     }
 
     const extension = detectFormat(format);
     let result;
     try {
-      result = await renderLivrable(payload, { themeId: resolvedThemeId, format: extension });
+      result = await renderLivrable(payload, {
+        themeId: resolvedThemeId,
+        format: extension,
+      });
     } catch (renderErr) {
-      const msg = renderErr instanceof Error ? renderErr.message : String(renderErr);
+      const msg =
+        renderErr instanceof Error ? renderErr.message : String(renderErr);
       console.error(`[create-livrable] render ${extension} failed:`, msg);
-      // Dernier filet : rendu DOCX minimal via fallback markdown
-      const fallbackPayload = markdownToPayload(aiContent, { title: titre, subtitle: description });
-      result = await renderLivrable(fallbackPayload, { themeId: resolvedThemeId, format: "docx" });
+      const fallbackPayload = markdownToPayload(aiContent, {
+        title: titre,
+        subtitle: description,
+      });
+      result = await renderLivrable(fallbackPayload, {
+        themeId: resolvedThemeId,
+        format: "docx",
+      });
       usedFallback = true;
     }
 
-    const blob = await put(`pacemaker/livrables/${result.filename}`, result.buffer, {
-      access: "public",
-      contentType: result.contentType,
-    });
-    console.log(`[create-livrable] ok in ${Date.now() - t0}ms, fallback=${usedFallback}, url=${blob.url}`);
+    const blob = await put(
+      `pacemaker/livrables/${result.filename}`,
+      result.buffer,
+      {
+        access: "public",
+        contentType: result.contentType,
+      },
+    );
+    console.log(
+      `[create-livrable] ok in ${Date.now() - t0}ms, fallback=${usedFallback}, url=${blob.url}`,
+    );
 
     const { trackGeneration } = await import("@/lib/corrections");
     const generationId = await trackGeneration({
@@ -92,14 +126,21 @@ export async function POST(req: NextRequest) {
       rawOutput: aiContent,
       appliedRuleIds: [],
       weekId: ctx.task.weekId,
+      missionId: mission.id,
     });
 
-    // Indexe en base documentaire pour la découverte
     const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     await execute(
-      `INSERT INTO documents (id, title, type, source, week_id, blob_url, content, created_at)
-       VALUES (?, ?, 'spec', 'manual', ?, ?, ?, datetime('now'))`,
-      [docId, titre, ctx.task.weekId, blob.url, aiContent.substring(0, 2000)]
+      `INSERT INTO documents (id, title, type, source, week_id, blob_url, content, created_at, mission_id)
+       VALUES (?, ?, 'spec', 'manual', ?, ?, ?, datetime('now'), ?)`,
+      [
+        docId,
+        titre,
+        ctx.task.weekId,
+        blob.url,
+        aiContent.substring(0, 2000),
+        mission.id,
+      ],
     );
 
     return NextResponse.json({
@@ -108,7 +149,7 @@ export async function POST(req: NextRequest) {
       format: result.extension,
       docId,
       generationId,
-      aiContent, // JSON brut du payload — consommé par la modale de correction
+      aiContent,
       themeId: resolvedThemeId,
     });
   } catch (error) {

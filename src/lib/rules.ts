@@ -10,8 +10,9 @@ import type { GenerationType, Rule } from "@/types";
 export async function getRelevantRules(
   generationType: GenerationType,
   context: Record<string, unknown>,
-  limit = 5
+  opts: { limit?: number; missionId?: string } = {},
 ): Promise<Rule[]> {
+  const limit = opts.limit ?? 5;
   try {
     const contextStr = Object.entries(context)
       .map(([k, v]) => `${k}:${v}`)
@@ -20,15 +21,23 @@ export async function getRelevantRules(
     const queryEmbedding = await getEmbedding(queryText, "query");
     const embeddingBlob = `[${queryEmbedding.join(",")}]`;
 
-    const rows = await query(
-      `SELECT id, rule_learned, generation_type, applied_count, created_at,
-              vector_distance_cos(rule_embedding, vector(?)) as distance
-       FROM corrections
-       WHERE generation_type = ? AND status = 'active'
-       ORDER BY distance ASC
-       LIMIT ?`,
-      [embeddingBlob, generationType, limit]
-    );
+    const sql = opts.missionId
+      ? `SELECT id, rule_learned, generation_type, applied_count, created_at,
+                vector_distance_cos(rule_embedding, vector(?)) as distance
+         FROM corrections
+         WHERE generation_type = ? AND status = 'active' AND mission_id = ?
+         ORDER BY distance ASC
+         LIMIT ?`
+      : `SELECT id, rule_learned, generation_type, applied_count, created_at,
+                vector_distance_cos(rule_embedding, vector(?)) as distance
+         FROM corrections
+         WHERE generation_type = ? AND status = 'active'
+         ORDER BY distance ASC
+         LIMIT ?`;
+    const args = opts.missionId
+      ? [embeddingBlob, generationType, opts.missionId, limit]
+      : [embeddingBlob, generationType, limit];
+    const rows = await query(sql, args);
 
     return rows
       .filter((r) => (1 - (r.distance as number)) > 0.65)

@@ -17,7 +17,6 @@ export function chunkText(text: string, maxTokens = 500, overlap = 50): string[]
 
     if (estimatedTokens > maxTokens && current) {
       chunks.push(current.trim());
-      // Overlap: keep last ~overlap tokens worth of text
       const overlapChars = overlap * 4;
       const overlapStart = Math.max(0, current.length - overlapChars);
       current = current.slice(overlapStart) + " " + sentence.trim();
@@ -32,6 +31,7 @@ export function chunkText(text: string, maxTokens = 500, overlap = 50): string[]
 
 /**
  * Index a document: chunk it, embed chunks, store in doc_chunks.
+ * mission_id vit sur la row `documents` — les chunks héritent par jointure.
  */
 export async function indexDocument(docId: string, content: string): Promise<number> {
   const chunks = chunkText(content);
@@ -44,9 +44,8 @@ export async function indexDocument(docId: string, content: string): Promise<num
     const embeddingBlob = `[${embeddings[i].join(",")}]`;
     await execute(
       `INSERT INTO doc_chunks (id, doc_id, chunk_index, content, embedding)
-       VALUES (?, ?, ?, ?, vector(?))`
-      ,
-      [chunkId, docId, i, chunks[i], embeddingBlob]
+       VALUES (?, ?, ?, ?, vector(?))`,
+      [chunkId, docId, i, chunks[i], embeddingBlob],
     );
   }
 
@@ -54,24 +53,35 @@ export async function indexDocument(docId: string, content: string): Promise<num
 }
 
 /**
- * Search documents by semantic similarity.
+ * Recherche sémantique dans les documents de la mission active (ou de toutes
+ * si missionId omis — utile en dev/debug seulement).
  */
 export async function searchDocs(
   queryText: string,
-  limit: number = 5
+  limit: number = 5,
+  missionId?: string,
 ): Promise<RagSearchResult[]> {
   const queryEmbedding = await getEmbedding(queryText, "query");
   const embeddingBlob = `[${queryEmbedding.join(",")}]`;
 
-  const rows = await query(
-    `SELECT c.id, c.doc_id, c.content, d.title,
-            vector_distance_cos(c.embedding, vector(?)) as distance
-     FROM doc_chunks c
-     JOIN documents d ON d.id = c.doc_id
-     ORDER BY distance ASC
-     LIMIT ?`,
-    [embeddingBlob, limit]
-  );
+  const sql = missionId
+    ? `SELECT c.id, c.doc_id, c.content, d.title,
+              vector_distance_cos(c.embedding, vector(?)) as distance
+       FROM doc_chunks c
+       JOIN documents d ON d.id = c.doc_id
+       WHERE d.mission_id = ?
+       ORDER BY distance ASC
+       LIMIT ?`
+    : `SELECT c.id, c.doc_id, c.content, d.title,
+              vector_distance_cos(c.embedding, vector(?)) as distance
+       FROM doc_chunks c
+       JOIN documents d ON d.id = c.doc_id
+       ORDER BY distance ASC
+       LIMIT ?`;
+  const args = missionId
+    ? [embeddingBlob, missionId, limit]
+    : [embeddingBlob, limit];
+  const rows = await query(sql, args);
 
   return rows.map((r) => ({
     chunkId: r.id as string,
@@ -83,15 +93,15 @@ export async function searchDocs(
 }
 
 /**
- * Get relevant context for a prompt, filtered by distance threshold.
+ * Contexte RAG à injecter en tête d'un prompt LLM, scopé à la mission.
  */
 export async function getRelevantContext(
   queryText: string,
-  weekId?: number
+  opts: { weekId?: number; missionId?: string } = {},
 ): Promise<string> {
   try {
-    const results = await searchDocs(queryText, 8);
-    const threshold = weekId ? 0.75 : 0.70;
+    const results = await searchDocs(queryText, 8, opts.missionId);
+    const threshold = opts.weekId ? 0.75 : 0.7;
     const relevant = results.filter((r) => r.distance <= threshold);
 
     if (relevant.length === 0) return "";
@@ -102,7 +112,7 @@ export async function getRelevantContext(
 
     return `\n=== CONTEXTE DOCUMENTAIRE PERTINENT (RAG) ===\n${contextBlocks}\n=== FIN CONTEXTE ===\n`;
   } catch {
-    // RAG is optional — if Voyage API is not configured, skip
+    // RAG est optionnel — Voyage absent = skip sans bloquer
     return "";
   }
 }

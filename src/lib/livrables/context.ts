@@ -43,23 +43,38 @@ function mapTask(r: Record<string, unknown>): Task {
 }
 
 /**
- * Charge tout le contexte projet nécessaire pour générer/régénérer un livrable.
- * Retourne null si taskId introuvable.
+ * Charge tout le contexte mission nécessaire pour générer/régénérer un livrable.
+ * Retourne null si taskId introuvable dans la mission indiquée.
  */
 export async function loadLivrableContext(
-  taskId: string
+  taskId: string,
+  missionId: string,
 ): Promise<CreateLivrableCtx | null> {
-  const taskRows = await query("SELECT * FROM tasks WHERE id = ?", [taskId]);
+  const taskRows = await query(
+    "SELECT * FROM tasks WHERE id = ? AND mission_id = ?",
+    [taskId, missionId],
+  );
   if (taskRows.length === 0) return null;
   const task = mapTask(taskRows[0]);
 
-  const weekRows = await query("SELECT * FROM weeks WHERE id = ?", [task.weekId]);
+  const weekRows = await query(
+    "SELECT * FROM weeks WHERE id = ? AND mission_id = ?",
+    [task.weekId, missionId],
+  );
   if (weekRows.length === 0) return null;
   const week = mapWeek(weekRows[0]);
 
-  const allWeeks: Week[] = (await query("SELECT * FROM weeks ORDER BY id")).map(mapWeek);
-  const allTasks: Task[] = (await query("SELECT * FROM tasks")).map(mapTask);
-  const riskRows = await query("SELECT * FROM risks");
+  const allWeeks: Week[] = (
+    await query("SELECT * FROM weeks WHERE mission_id = ? ORDER BY id", [
+      missionId,
+    ])
+  ).map(mapWeek);
+  const allTasks: Task[] = (
+    await query("SELECT * FROM tasks WHERE mission_id = ?", [missionId])
+  ).map(mapTask);
+  const riskRows = await query("SELECT * FROM risks WHERE mission_id = ?", [
+    missionId,
+  ]);
   const risks: Risk[] = riskRows.map((r) => ({
     id: r.id as string,
     label: r.label as string,
@@ -69,7 +84,11 @@ export async function loadLivrableContext(
     mitigation: r.mitigation as string,
   }));
 
-  const budgetRow = await query("SELECT value FROM project WHERE key = 'budget'");
+  // Budget et current_week restent globaux pour l'instant (non scopés par
+  // mission au chantier 1 — project k/v non migrée).
+  const budgetRow = await query(
+    "SELECT value FROM project WHERE key = 'budget'",
+  );
   const budget: Budget = budgetRow.length
     ? JSON.parse(budgetRow[0].value as string)
     : {
@@ -81,7 +100,9 @@ export async function loadLivrableContext(
         echeances: [],
       };
 
-  const cwRow = await query("SELECT value FROM project WHERE key = 'current_week'");
+  const cwRow = await query(
+    "SELECT value FROM project WHERE key = 'current_week'",
+  );
   const currentWeek = cwRow.length ? parseInt(cwRow[0].value as string) : 1;
 
   return { task, week, allWeeks, allTasks, risks, budget, currentWeek };

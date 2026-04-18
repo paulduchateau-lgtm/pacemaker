@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callLLM, parseJSON } from "@/lib/llm";
-
-export const dynamic = "force-dynamic";
 import { buildRecalibrationPrompt } from "@/lib/prompts";
 import { query, execute } from "@/lib/db";
+import { resolveActiveMission } from "@/lib/mission";
 import type { Week, Task, Risk, MissionEvent } from "@/types";
+
+export const dynamic = "force-dynamic";
 
 interface RecalibResult {
   weeks: Record<string, { label: string; owner: string; priority: string }[]>;
@@ -13,10 +14,13 @@ interface RecalibResult {
 
 export async function POST(req: NextRequest) {
   try {
+    const mission = await resolveActiveMission(req);
     const { currentWeek } = await req.json();
 
-    // Fetch full state
-    const weekRows = await query("SELECT * FROM weeks ORDER BY id");
+    const weekRows = await query(
+      "SELECT * FROM weeks WHERE mission_id = ? ORDER BY id",
+      [mission.id],
+    );
     const weeks: Week[] = weekRows.map((w) => ({
       id: w.id as number,
       phase: w.phase as Week["phase"],
@@ -31,7 +35,10 @@ export async function POST(req: NextRequest) {
       baselineEndDate: (w.baseline_end_date as string) || null,
     }));
 
-    const taskRows = await query("SELECT * FROM tasks");
+    const taskRows = await query(
+      "SELECT * FROM tasks WHERE mission_id = ?",
+      [mission.id],
+    );
     const tasks: Task[] = taskRows.map((r) => ({
       id: r.id as string,
       weekId: r.week_id as number,
@@ -45,7 +52,10 @@ export async function POST(req: NextRequest) {
       completedAt: (r.completed_at as string) || null,
     }));
 
-    const riskRows = await query("SELECT * FROM risks");
+    const riskRows = await query(
+      "SELECT * FROM risks WHERE mission_id = ?",
+      [mission.id],
+    );
     const risks: Risk[] = riskRows.map((r) => ({
       id: r.id as string,
       label: r.label as string,
@@ -55,7 +65,10 @@ export async function POST(req: NextRequest) {
       mitigation: r.mitigation as string,
     }));
 
-    const eventRows = await query("SELECT * FROM events ORDER BY date DESC");
+    const eventRows = await query(
+      "SELECT * FROM events WHERE mission_id = ? ORDER BY date DESC",
+      [mission.id],
+    );
     const events: MissionEvent[] = eventRows.map((r) => ({
       id: r.id as string,
       type: r.type as MissionEvent["type"],
@@ -71,17 +84,21 @@ export async function POST(req: NextRequest) {
     const { getMissionContext } = await import("@/lib/mission-context");
 
     const ragContext = await getRelevantContext(
-      `recalibration semaine ${currentWeek}`
+      `recalibration semaine ${currentWeek}`,
+      { missionId: mission.id },
     );
-    const rules = await getRelevantRules("recalib", { currentWeek });
-    const missionContext = await getMissionContext();
-    const prompt = buildRecalibrationPrompt({
-      currentWeek,
-      weeks,
-      tasks,
-      risks,
-      events,
-    }, ragContext, rules, missionContext);
+    const rules = await getRelevantRules(
+      "recalib",
+      { currentWeek },
+      { missionId: mission.id },
+    );
+    const missionContext = await getMissionContext({ missionId: mission.id });
+    const prompt = buildRecalibrationPrompt(
+      { currentWeek, weeks, tasks, risks, events },
+      ragContext,
+      rules,
+      missionContext,
+    );
     const result = await callLLM(prompt, 4000);
 
     const generationId = await trackGeneration({
@@ -91,38 +108,37 @@ export async function POST(req: NextRequest) {
       rawOutput: result,
       appliedRuleIds: rules.map((r) => r.id),
       weekId: currentWeek,
+      missionId: mission.id,
     });
 
     const recalib = parseJSON<RecalibResult>(result);
 
-    // Delete non-done tasks for weeks >= currentWeek
     await execute(
-      "DELETE FROM tasks WHERE week_id >= ? AND status != 'fait'",
-      [currentWeek]
+      "DELETE FROM tasks WHERE week_id >= ? AND status != 'fait' AND mission_id = ?",
+      [currentWeek, mission.id],
     );
 
-    // Insert recalibrated tasks
     for (const [weekIdStr, weekTasks] of Object.entries(recalib.weeks)) {
       const weekId = parseInt(weekIdStr, 10);
       for (const t of weekTasks) {
         const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         await execute(
-          "INSERT INTO tasks (id, week_id, label, owner, priority, source) VALUES (?, ?, ?, ?, ?, 'recalib')",
-          [id, weekId, t.label, t.owner, t.priority]
+          "INSERT INTO tasks (id, week_id, label, owner, priority, source, mission_id) VALUES (?, ?, ?, ?, ?, 'recalib', ?)",
+          [id, weekId, t.label, t.owner, t.priority, mission.id],
         );
       }
     }
 
-    // Log recalibration event
     const evtId = `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     await execute(
-      "INSERT INTO events (id, type, label, week_id, content) VALUES (?, 'recalib', ?, ?, ?)",
+      "INSERT INTO events (id, type, label, week_id, content, mission_id) VALUES (?, 'recalib', ?, ?, ?, ?)",
       [
         evtId,
         `Recalibration du plan à S${currentWeek}`,
         currentWeek,
         recalib.carryover_notes,
-      ]
+        mission.id,
+      ],
     );
 
     return NextResponse.json({

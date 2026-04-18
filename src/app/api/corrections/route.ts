@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { processCorrection } from "@/lib/corrections";
+import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,25 @@ export async function POST(req: NextRequest) {
     if (!generationId || !correctedOutput) {
       return NextResponse.json(
         { error: "generationId et correctedOutput requis" },
-        { status: 400 }
+        { status: 400 },
+      );
+    }
+    // La mission d'attache est dérivée automatiquement de la génération source
+    // (processCorrection lit generations.mission_id et le réutilise sur la
+    // correction). On résout quand même la mission active pour vérifier que
+    // la correction porte bien sur la mission courante.
+    const mission = await resolveActiveMission(req);
+    const genRows = await query(
+      "SELECT mission_id FROM generations WHERE id = ?",
+      [generationId],
+    );
+    if (
+      genRows.length === 0 ||
+      (genRows[0].mission_id && genRows[0].mission_id !== mission.id)
+    ) {
+      return NextResponse.json(
+        { error: "Génération d'une autre mission" },
+        { status: 403 },
       );
     }
 
@@ -24,11 +43,13 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const mission = await resolveActiveMission(req);
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type");
 
-    let sql = "SELECT * FROM corrections WHERE status = 'active'";
-    const args: string[] = [];
+    let sql =
+      "SELECT * FROM corrections WHERE status = 'active' AND mission_id = ?";
+    const args: string[] = [mission.id];
 
     if (type) {
       sql += " AND generation_type = ?";

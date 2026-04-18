@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
+    const mission = await resolveActiveMission(req);
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type");
     const limit = parseInt(searchParams.get("limit") || "50", 10);
 
-    let sql = "SELECT * FROM generations";
-    const args: (string | number)[] = [];
+    let sql = "SELECT * FROM generations WHERE mission_id = ?";
+    const args: (string | number)[] = [mission.id];
 
     if (type) {
-      sql += " WHERE generation_type = ?";
+      sql += " AND generation_type = ?";
       args.push(type);
     }
 

@@ -3,6 +3,7 @@ import { execute, query } from "@/lib/db";
 import { indexDocument } from "@/lib/rag";
 import { extractText } from "@/lib/doc-parser";
 import { put } from "@vercel/blob";
+import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ const EXT_TO_DOCTYPE: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
+    const mission = await resolveActiveMission(req);
     const formData = await req.formData();
     const file = formData.get("file") as File;
     const title = (formData.get("title") as string) || "";
@@ -93,8 +95,8 @@ export async function POST(req: NextRequest) {
     const docTitle = title.trim() || file.name.replace(/\.[^.]+$/, "");
 
     await execute(
-      `INSERT INTO documents (id, title, type, source, week_id, blob_url, content)
-       VALUES (?, ?, ?, 'upload', ?, ?, ?)`,
+      `INSERT INTO documents (id, title, type, source, week_id, blob_url, content, mission_id)
+       VALUES (?, ?, ?, 'upload', ?, ?, ?, ?)`,
       [
         id,
         docTitle,
@@ -102,7 +104,8 @@ export async function POST(req: NextRequest) {
         weekId ? parseInt(weekId) : null,
         blob.url,
         textContent,
-      ]
+        mission.id,
+      ],
     );
 
     // Index for RAG
@@ -114,7 +117,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const rows = await query("SELECT * FROM documents WHERE id = ?", [id]);
+    const rows = await query(
+      "SELECT * FROM documents WHERE id = ? AND mission_id = ?",
+      [id, mission.id],
+    );
     const r = rows[0];
     return NextResponse.json({
       id: r.id,
