@@ -1,6 +1,9 @@
 import type { NextRequest } from "next/server";
 import { query, execute } from "./db";
-import { ACTIVE_MISSION_COOKIE, DEFAULT_MISSION_SLUG } from "./mission-constants";
+import {
+  ACTIVE_MISSION_COOKIE,
+  DEFAULT_MISSION_SLUG,
+} from "./mission-constants";
 import type {
   CreateMissionInput,
   Mission,
@@ -8,7 +11,9 @@ import type {
   UpdateMissionInput,
 } from "@/types";
 
-export { ACTIVE_MISSION_COOKIE, DEFAULT_MISSION_SLUG } from "./mission-constants";
+// Ré-exports pour que les callers continuent à importer depuis `@/lib/mission`
+// sans devoir connaître `mission-constants` (split uniquement Edge-compatible).
+export { ACTIVE_MISSION_COOKIE, DEFAULT_MISSION_SLUG };
 
 const SLUG_REGEX = /^[a-z0-9-]+$/;
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;

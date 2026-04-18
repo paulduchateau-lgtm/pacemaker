@@ -45,7 +45,7 @@ const COMPOSITE_INDEXES: Array<[string, string]> = [
 
 async function hasColumn(table: string, column: string): Promise<boolean> {
   const rows = await query(`PRAGMA table_info(${table})`);
-  return rows.some((r) => (r as { name: string }).name === column);
+  return rows.some((r) => (r as unknown as { name: string }).name === column);
 }
 
 function addWeeksIso(iso: string, weeks: number): string {

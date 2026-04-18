@@ -2,9 +2,13 @@
 
 ## Contexte projet
 
-Application web de pilotage de mission de consulting (transformation BI Power BI pour la Direction de l'Action Sociale de l'Agirc-Arrco, 7 semaines effectives sur 30 jh). Deux interfaces : une vue **Admin** (chef de projet) et une vue **Client** (lecture seule, Agirc-Arrco). L'app intègre l'API Anthropic pour générer des tâches, parser des comptes-rendus, recalibrer le plan en temps réel, et analyser des photos prises en atelier (tableau blanc, slides, Post-it). Une base documentaire RAG enrichit automatiquement les prompts LLM avec le contexte projet.
+Application web de pilotage de missions de consulting. Deux interfaces : une vue **Admin** (chef de projet) et une vue **Client** (lecture seule). L'app intègre l'API Anthropic pour générer des tâches, parser des comptes-rendus, recalibrer le plan en temps réel, et analyser des photos prises en atelier. Une base documentaire RAG enrichit automatiquement les prompts LLM avec le contexte projet.
+
+**Chantier 01 (multi-mission)** : depuis le 2026-04-18, l'app est multi-tenant au niveau Mission. La mission initiale Agirc-Arrco / DAS (slug `agirc-arrco-2026`, 7 semaines) cohabite désormais avec d'autres missions potentielles. Toutes les entités métier portent un `mission_id`. Voir la section **Mission multi-tenant** plus bas.
 
 Le prototype fonctionnel existe en artifact React monofichier (voir `docs/prototype.jsx`). Ce repo est la version industrialisée, découpée et maintenable.
+
+Documents de référence pour les chantiers de transformation : `docs/reference/pacemaker-manifeste-v02.md`, `docs/reference/pacemaker-plan-transformation.md`, `docs/reference/pacemaker-whatsapp-agent-spec.md`, `docs/reference/pacemaker-prompt-amorcage.md`.
 
 ---
 
@@ -192,12 +196,15 @@ Chaque fichier a **une seule responsabilité** et fait **moins de 150 lignes**. 
 
 ## Schéma de données
 
-Voir `src/types/index.ts` pour les types complets (Week, Task, Risk, Livrable, MissionEvent, Rapport, Document, DocChunk, VisionExtraction, RagSearchResult, Budget, ProjectState) et `schema.sql` pour le DDL complet. Points clés :
+Voir `src/types/index.ts` pour les types complets (Week, Task, Risk, Livrable, MissionEvent, Rapport, Document, DocChunk, VisionExtraction, RagSearchResult, Budget, ProjectState, **Mission**) et `schema.sql` pour le DDL complet. Points clés :
 
-- **Enums** : Phase, TaskStatus, TaskOwner, TaskSource ("manual"|"llm"|"upload"|"recalib"|"vision"), EventType (avec "vision"), DocType, DocSource
-- **Tables principales** : weeks, tasks, risks, livrables, rapports, events, documents, doc_chunks, project
+- **Enums** : Phase, TaskStatus, TaskOwner, TaskSource ("manual"|"llm"|"upload"|"recalib"|"vision"), EventType (avec "vision"), DocType, DocSource, **MissionStatus** ("active"|"paused"|"archived")
+- **Table pivot multi-tenant** : `missions` (id, slug UNIQUE, label, client, start_date, end_date, status, theme, context, owner_user_id)
+- **Tables scopées par `mission_id`** : weeks, tasks, risks, livrables, rapports, events, documents, generations, corrections, schedule_changes (colonne nullable au chantier 01, passera NOT NULL au chantier de cleanup)
+- **Tables transitives** : task_attachments (via tasks.mission_id), doc_chunks (via documents.mission_id)
+- **Tables globales** : project (k/v, conservée temporairement : budget et current_week seulement)
 - **Index vectoriel** : `CREATE INDEX doc_chunks_embedding_idx ON doc_chunks(libsql_vector_idx(embedding))`
-- **Embeddings** : colonne `F32_BLOB(1024)` dans `doc_chunks` (voyage-3 = 1024 dim)
+- **Embeddings** : colonne `F32_BLOB(1024)` dans `doc_chunks` et `corrections` (voyage-3 = 1024 dim)
 
 ---
 
@@ -252,9 +259,49 @@ Types détectés : decision, action, risk, kpi, schema, note.
 
 ## Navigation responsive
 
-**Desktop (≥ lg)** : TopBar sticky avec onglets (Backlog, Risques, Journal, Capture, Docs) + toggle Admin/Client.
+**Desktop (≥ lg)** : TopBar sticky avec onglets (Backlog, Risques, Journal, Capture, Docs, Règles, Contexte) + toggle Admin/Client. Liens tous scopés à `/admin/missions/<slug>/...` (ou `/client/<slug>`).
 
-**Mobile (< lg)** : TopBar compacte + BottomBar fixe 4 icônes (Backlog, Capture, Docs, Plus→drawer Risques/Journal).
+**Mobile (< lg)** : TopBar compacte + BottomBar fixe 4 icônes (Backlog, Capture, Docs, Plus → drawer avec Risques, Journal, Règles, Contexte, Vue client, Missions).
+
+## Mission multi-tenant
+
+Toute l'UI admin vit sous `/admin/missions/[slug]/...` et le dashboard client sous `/client/[slug]`. Le slug est la clef stable exposée à l'utilisateur (les ID internes `mission-...` ne fuient jamais dans les URLs).
+
+### Résolution de la mission active côté serveur
+
+Dans chaque route API qui touche une table scopée :
+
+```ts
+import { resolveActiveMission } from "@/lib/mission";
+
+export async function GET(req: NextRequest) {
+  const mission = await resolveActiveMission(req);
+  // ... WHERE mission_id = mission.id
+}
+```
+
+Ordre de priorité de résolution : query param `?mission=<slug>` → header `x-mission-slug` → cookie `active_mission_slug` → `DEFAULT_MISSION_SLUG` (fallback transitoire).
+
+### Middleware
+
+`src/middleware.ts` (Edge, pas d'accès DB) :
+- Redirige `/admin`, `/admin/<page-legacy>`, `/client` vers leur équivalent scopé.
+- Maintient le cookie `active_mission_slug` à jour à chaque visite d'une page scopée.
+
+### Helpers à réutiliser
+
+- `src/lib/mission.ts` : `listMissions`, `getMissionBySlug`, `requireMissionBySlug`, `createMission`, `updateMission`, `archiveMission`, `resolveActiveMission`.
+- `src/lib/mission-constants.ts` : `DEFAULT_MISSION_SLUG`, `ACTIVE_MISSION_COOKIE` (import Edge-safe).
+- `src/lib/mission-context.ts` : `getMissionContext({ missionId | slug })`, `setMissionContext(missionId, value)`.
+- `src/lib/livrables/theme-store.ts` : `getLivrableTheme({ missionId | slug })`, `setLivrableTheme(missionId, value)`.
+
+### Règle d'or
+
+Toute nouvelle route qui lit/écrit dans une table scopée doit :
+1. Appeler `resolveActiveMission(req)` en premier.
+2. Inclure `mission_id` dans tous les INSERT.
+3. Inclure `AND mission_id = ?` dans tous les SELECT/UPDATE/DELETE.
+4. Pour les FK transitives (task_id → mission, doc_id → mission), vérifier l'appartenance via JOIN ou SELECT pré-existant.
 
 ---
 
@@ -447,12 +494,14 @@ Le système d'apprentissage est intégré à l'app. Chaque génération LLM est 
 2. Bouton "✎ J'ai corrigé" → modale côte-à-côte (original / correction)
 3. POST `/api/corrections` → LLM analyse le diff → extrait une règle généralisable
 4. Règle embedée (Voyage) et indexée dans `corrections`
-5. Prochaines générations du même type : `getRelevantRules()` injecte les règles pertinentes en tête du prompt
+5. Prochaines générations du même type : `getRelevantRules(type, ctx, { missionId })` injecte les règles pertinentes en tête du prompt — uniquement celles apprises sur la mission courante
 
 ### Tables additionnelles
 
-- `generations` — tracking de chaque appel LLM (type, contexte, prompt, sortie brute, règles appliquées)
-- `corrections` — diff + règle apprise + embedding vectoriel + compteur d'applications
+- `generations` — tracking de chaque appel LLM (type, contexte, prompt, sortie brute, règles appliquées, **mission_id**)
+- `corrections` — diff + règle apprise + embedding vectoriel + compteur d'applications + **mission_id** (hérité de la génération source)
+
+Les règles n'inter-migrent **pas** entre missions : chaque mission apprend sur son propre corpus. Si une règle doit être partagée entre missions, c'est un chantier ultérieur.
 
 ### Fichiers additionnels
 
