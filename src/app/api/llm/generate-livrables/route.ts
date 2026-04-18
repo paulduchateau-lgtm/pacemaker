@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callLLM, parseJSON } from "@/lib/llm";
+import { callLLMWithUsage, parseJSON } from "@/lib/llm";
 import { query, execute } from "@/lib/db";
 import { buildGenerateLivrablesPrompt } from "@/lib/prompts";
 import { resolveActiveMission } from "@/lib/mission";
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       missionContext,
     );
 
-    const result = await callLLM(prompt, 2000);
+    const { text: result, usage, model } = await callLLMWithUsage(prompt, 2000);
 
     const generationId = await trackGeneration({
       generationType: "livrables",
@@ -100,6 +100,10 @@ export async function POST(req: NextRequest) {
       appliedRuleIds: rules.map((r) => r.id),
       weekId: week.id as number,
       missionId: mission.id,
+      usage,
+      model,
+      route: "llm/generate-livrables",
+      triggeredBy: "user",
     });
 
     const parsed = parseJSON<LivrableResult>(result);

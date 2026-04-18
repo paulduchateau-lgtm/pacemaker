@@ -1,11 +1,14 @@
 import { query, execute } from "./db";
 import { callLLM, parseJSON } from "./llm";
 import { getEmbedding } from "./embeddings";
+import { logTokenUsage } from "./token-usage";
 import type { GenerationType } from "@/types";
 
 /**
  * Track a LLM generation for future correction.
  * `missionId` est scopant : chaque génération appartient à UNE mission.
+ * Si `usage` est fourni, la consommation de tokens est loguée dans
+ * `token_usage` pour suivi budgétaire (chantier 3).
  */
 export async function trackGeneration(params: {
   generationType: GenerationType;
@@ -15,6 +18,10 @@ export async function trackGeneration(params: {
   appliedRuleIds: string[];
   weekId?: number;
   missionId: string;
+  usage?: { inputTokens: number; outputTokens: number; cacheCreationTokens?: number; cacheReadTokens?: number };
+  model?: string;
+  route?: string;
+  triggeredBy?: "user" | "auto";
 }): Promise<string> {
   const id = `gen-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   await execute(
@@ -38,6 +45,17 @@ export async function trackGeneration(params: {
       `UPDATE corrections SET applied_count = applied_count + 1 WHERE id = ?`,
       [ruleId],
     );
+  }
+
+  if (params.usage && params.model && params.route) {
+    await logTokenUsage({
+      missionId: params.missionId,
+      generationId: id,
+      route: params.route,
+      model: params.model,
+      usage: params.usage,
+      triggeredBy: params.triggeredBy ?? "user",
+    });
   }
 
   return id;

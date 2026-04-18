@@ -228,6 +228,54 @@ CREATE TABLE IF NOT EXISTS decision_links (
 CREATE INDEX IF NOT EXISTS idx_decision_links_decision ON decision_links(decision_id);
 CREATE INDEX IF NOT EXISTS idx_decision_links_entity ON decision_links(entity_type, entity_id);
 
+-- =========================================================================
+-- Chantier 3 (détection d'incohérences + télémétrie tokens).
+-- Le schéma `incoherences` est compatible avec la spec WhatsApp du chantier 7
+-- (source_message_id optionnel pour lier au wa_messages à venir).
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS token_usage (
+  id TEXT PRIMARY KEY,
+  mission_id TEXT REFERENCES missions(id),
+  generation_id TEXT REFERENCES generations(id),
+  route TEXT NOT NULL,
+  model TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_creation_tokens INTEGER,
+  cache_read_tokens INTEGER,
+  triggered_by TEXT NOT NULL DEFAULT 'user'
+    CHECK(triggered_by IN ('user','auto')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_token_usage_mission ON token_usage(mission_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_token_usage_route ON token_usage(route, created_at);
+
+CREATE TABLE IF NOT EXISTS incoherences (
+  id TEXT PRIMARY KEY,
+  mission_id TEXT NOT NULL REFERENCES missions(id),
+  kind TEXT NOT NULL
+    CHECK(kind IN ('factual','scope_drift','constraint_change','hypothesis_invalidated')),
+  severity TEXT NOT NULL DEFAULT 'moderate'
+    CHECK(severity IN ('minor','moderate','major')),
+  description TEXT NOT NULL,
+  source_entity_type TEXT NOT NULL,
+  source_entity_id TEXT NOT NULL,
+  source_message_id TEXT,
+  conflicting_entity_type TEXT NOT NULL,
+  conflicting_entity_id TEXT NOT NULL,
+  auto_resolution TEXT,
+  resolution_status TEXT NOT NULL DEFAULT 'pending'
+    CHECK(resolution_status IN ('pending','auto_resolved','user_acknowledged','user_rejected','ignored')),
+  resolved_at TEXT,
+  resolved_by TEXT,
+  briefed_to_user_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_incoherences_mission_pending ON incoherences(mission_id, resolution_status, created_at);
+CREATE INDEX IF NOT EXISTS idx_incoherences_source ON incoherences(mission_id, source_entity_type, source_entity_id);
+CREATE INDEX IF NOT EXISTS idx_incoherences_briefed ON incoherences(mission_id, briefed_to_user_at);
+
 -- Index composites mission-first (chantier 1)
 CREATE INDEX IF NOT EXISTS idx_weeks_mission ON weeks(mission_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_mission_week ON tasks(mission_id, week_id);
