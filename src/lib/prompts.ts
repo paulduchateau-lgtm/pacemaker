@@ -155,12 +155,40 @@ Réponds UNIQUEMENT avec du JSON :
 }`;
 }
 
+export interface RecalibDecision {
+  id: string;
+  statement: string;
+  rationale: string | null;
+  weekId: number | null;
+}
+
+export interface RecalibLivrable {
+  id: string;
+  label: string;
+  weekId: number;
+  status: string;
+  deliveryDate: string | null;
+}
+
+export interface RecalibRapport {
+  id: string;
+  label: string;
+  weekId: number | null;
+  lot: number;
+  etat: string;
+  complexite: string;
+}
+
 interface RecalibrationState {
   currentWeek: number;
   weeks: Week[];
   tasks: Task[];
   risks: Risk[];
   events: MissionEvent[];
+  decisions: RecalibDecision[];
+  livrables: RecalibLivrable[];
+  rapports: RecalibRapport[];
+  scope: "full_plan" | "downstream_only" | "single_week";
 }
 
 export function buildRecalibrationPrompt(
@@ -174,44 +202,79 @@ export function buildRecalibrationPrompt(
     const done = weekTasks.filter((t) => t.status === "fait").length;
     const blocked = weekTasks.filter((t) => t.status === "bloqué").length;
     const isPast = w.id < state.currentWeek;
+    const weekLivrables = state.livrables.filter((l) => l.weekId === w.id);
+    const weekRapports = state.rapports.filter((r) => r.weekId === w.id);
 
     return `Semaine ${w.id} (${w.phase} — ${w.title}) [${w.budget_jh} jh]${isPast ? " [PASSÉE]" : w.id === state.currentWeek ? " [EN COURS]" : ""}
   Tâches : ${weekTasks.length} total, ${done} faites, ${blocked} bloquées
-  Livrables prévus : ${w.livrables.join(", ")}`;
+  Tâches non-faites : ${weekTasks.filter((t) => t.status !== "fait").map((t) => `[${t.id}] ${t.label}`).join(" ; ") || "—"}
+  Livrables rattachés : ${weekLivrables.map((l) => `[${l.id}] ${l.label} (${l.status})`).join(" ; ") || "—"}
+  Rapports rattachés : ${weekRapports.map((r) => `[${r.id}] ${r.label} (lot ${r.lot}, ${r.etat})`).join(" ; ") || "—"}`;
   });
 
   const activeRisks = state.risks.filter((r) => r.status === "actif");
-  const decisions = state.events.filter((e) => e.type === "decision");
+  const orphanRapports = state.rapports.filter((r) => r.weekId === null);
+
+  const scopeInstructions: Record<typeof state.scope, string> = {
+    full_plan: `Scope : PLAN COMPLET — tu peux ré-attribuer des tâches, livrables et rapports
+sur N'IMPORTE QUELLE semaine (1 à ${state.weeks.length}), y compris celles déjà passées
+si une décision récente le rend nécessaire. Ne touche PAS les tâches marquées "fait".`,
+    downstream_only: `Scope : AVAL UNIQUEMENT — tu ne modifies que les semaines ≥ ${state.currentWeek}.
+Les semaines passées sont intouchables.`,
+    single_week: `Scope : SEMAINE UNIQUE — tu ne modifies que la semaine ${state.currentWeek}.`,
+  };
 
   return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un assistant de pilotage de mission de consulting.
 La mission est actuellement à la semaine ${state.currentWeek}.
 ${ragContext}
+${scopeInstructions[state.scope]}
+
 État complet du projet :
 
 ${weekSummaries.join("\n\n")}
-
+${orphanRapports.length > 0 ? `\nRapports non-affectés : ${orphanRapports.map((r) => `[${r.id}] ${r.label} (lot ${r.lot})`).join(" ; ")}\n` : ""}
 Risques actifs :
-${activeRisks.map((r) => `- ${r.label} (impact: ${r.impact}, proba: ${r.probability})`).join("\n")}
+${activeRisks.map((r) => `- ${r.label} (impact: ${r.impact}, proba: ${r.probability})`).join("\n") || "(aucun)"}
 
-Décisions prises :
-${decisions.map((d) => `- S${d.weekId}: ${d.label}`).join("\n")}
+DÉCISIONS ACTIVES (tu DOIS les respecter impérativement) :
+${state.decisions.length > 0 ? state.decisions.map((d) => `- [${d.id}] S${d.weekId ?? "?"} : ${d.statement}${d.rationale ? ` — motifs : ${d.rationale}` : ""}`).join("\n") : "(aucune)"}
 
-Recalibre le plan pour les semaines à venir (à partir de la semaine ${state.currentWeek}).
-- Préserve les tâches "fait"
+Derniers événements :
+${state.events.slice(0, 15).map((e) => `- ${e.type}: ${e.label}`).join("\n")}
+
+Recalibre le plan dans le scope autorisé :
+- Préserve TOUJOURS les tâches "fait"
+- Si une décision dit "focus X sur semaines A-B", les livrables/rapports qui
+  sortent de ce focus DOIVENT être déplacés hors de ces semaines (ou annulés)
+- Les livrables/rapports peuvent changer de semaine, changer de statut,
+  ou être marqués "annulés" si une décision les rend caducs
 - Reporte les blocages intelligemment
-- Respecte les jalons/livrables de chaque semaine
 - Respecte le budget jh par semaine
+- N'invente pas de nouveaux livrables/rapports sans fondement — si tu penses
+  qu'il en manque, signale-le dans carryover_notes plutôt que d'en créer
 
 Les owners possibles sont : "Paul", "Paul B.", "Client".
 Les priorités possibles sont : "haute", "moyenne", "basse".
+Les statuts de livrable : "planifié" | "en cours" | "livré" | "validé" | "annulé".
+Les états de rapport : "à faire" | "en cours" | "livré" | "annulé".
 
-Réponds UNIQUEMENT avec du JSON :
+Réponds UNIQUEMENT avec du JSON (strict, sans backticks) :
 {
   "weeks": {
-    "${state.currentWeek}": [{"label": "...", "owner": "...", "priority": "..."}]
+    "1": [{"label": "...", "owner": "...", "priority": "...", "confidence": 0.7, "reasoning": "..."}]
   },
-  "carryover_notes": "Explication"
-}`;
+  "livrable_changes": [
+    {"id": "livrable-xxx", "new_week_id": 3, "new_status": "planifié", "reason": "décision focus AST"}
+  ],
+  "rapport_changes": [
+    {"id": "rapport-xxx", "new_week_id": 5, "new_etat": "à faire", "reason": "réalignement après focus AST"}
+  ],
+  "carryover_notes": "Explication synthétique : ce qui bouge, ce qui est préservé, pourquoi."
+}
+
+Tous les champs de livrable_changes / rapport_changes sont optionnels sauf "id"
+(ne mets que ce qui CHANGE). new_week_id peut être null pour désaffecter.
+Les "weeks" doivent couvrir UNIQUEMENT les semaines que tu modifies dans ton scope.`;
 }
 
 interface CreateLivrableContext {

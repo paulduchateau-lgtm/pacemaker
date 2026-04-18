@@ -166,6 +166,21 @@ export async function createDecision(
     }
   }
 
+  // Refonte recalib : une décision peut rétroactivement invalider le plan.
+  // On déclenche une recalibration complète automatiquement (debounce 30s
+  // protège contre les cascades quand un CR crée 3 décisions d'affilée).
+  try {
+    const { kickOffAutoRecalibration } = await import("./recalibration");
+    await kickOffAutoRecalibration({
+      missionId,
+      scope: "full_plan",
+      trigger: "auto_on_input",
+      triggerRef: id,
+    });
+  } catch {
+    /* best-effort */
+  }
+
   return created;
 }
 
