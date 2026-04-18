@@ -312,6 +312,22 @@ CREATE TABLE IF NOT EXISTS recalibrations (
 CREATE INDEX IF NOT EXISTS idx_recalibrations_mission ON recalibrations(mission_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_recalibrations_trigger ON recalibrations(mission_id, trigger, created_at);
 
+-- =========================================================================
+-- Chantier 5 (briefing adaptatif). mission_visits stocke la date de dernière
+-- visite par utilisateur + un cache de briefing (TTL 15 min côté lib).
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS mission_visits (
+  id TEXT PRIMARY KEY,
+  mission_id TEXT NOT NULL REFERENCES missions(id),
+  user_id TEXT NOT NULL DEFAULT 'paul',
+  last_visit_at TEXT NOT NULL DEFAULT (datetime('now')),
+  briefing_cache TEXT,
+  briefing_cache_generated_at TEXT,
+  UNIQUE(mission_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_mission_visits_mission ON mission_visits(mission_id, last_visit_at);
+
 -- Index composites mission-first (chantier 1)
 CREATE INDEX IF NOT EXISTS idx_weeks_mission ON weeks(mission_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_mission_week ON tasks(mission_id, week_id);

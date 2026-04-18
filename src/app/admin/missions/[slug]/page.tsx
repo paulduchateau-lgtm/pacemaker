@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { useStore } from "@/store";
 import { getWeekTasks, getAllTaskStats } from "@/lib/computed";
 import WeekAccordion from "@/components/admin/WeekAccordion";
@@ -10,8 +11,11 @@ import PlanningKpiRow from "@/components/admin/PlanningKpiRow";
 import TodayHeader from "@/components/ui/TodayHeader";
 import KpiCard from "@/components/ui/KpiCard";
 import Button from "@/components/ui/Button";
+import MissionBriefing from "@/components/briefing/MissionBriefing";
 
 export default function AdminBacklog() {
+  const params = useParams<{ slug: string }>();
+  const slug = params?.slug ?? "";
   const {
     weeks,
     tasks,
@@ -65,6 +69,8 @@ export default function AdminBacklog() {
         </div>
         <RecalibrateButton />
       </div>
+
+      <MissionBriefing slug={slug} />
 
       <div className="flex flex-col sm:flex-row gap-3">
         <TodayHeader />
