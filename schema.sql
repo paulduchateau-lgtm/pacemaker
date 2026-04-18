@@ -328,6 +328,58 @@ CREATE TABLE IF NOT EXISTS mission_visits (
 );
 CREATE INDEX IF NOT EXISTS idx_mission_visits_mission ON mission_visits(mission_id, last_visit_at);
 
+-- =========================================================================
+-- Chantier 7 itération 1a (préparation WhatsApp — option C hybride).
+-- Tables WhatsApp brutes + `agent_actions` qui est le journal narratif
+-- unifié. Les contenus riches restent dans decisions/incoherences/
+-- recalibrations (pointés via target_entity_type/_id).
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS wa_conversations (
+  id TEXT PRIMARY KEY,
+  mission_id TEXT REFERENCES missions(id),
+  phone_number TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  last_active_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS wa_messages (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL REFERENCES wa_conversations(id),
+  direction TEXT NOT NULL CHECK(direction IN ('inbound','outbound')),
+  type TEXT NOT NULL CHECK(type IN ('text','audio','image','document')),
+  raw_content TEXT,
+  blob_url TEXT,
+  wa_message_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_wa_messages_conv ON wa_messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_wa_messages_dedup ON wa_messages(wa_message_id);
+
+CREATE TABLE IF NOT EXISTS agent_actions (
+  id TEXT PRIMARY KEY,
+  mission_id TEXT NOT NULL REFERENCES missions(id),
+  source_message_id TEXT REFERENCES wa_messages(id),
+  action_type TEXT NOT NULL CHECK(action_type IN (
+    'create_task','update_task','update_deliverable',
+    'add_context','create_decision','flag_incoherence',
+    'recalibrate_plan','ask_user','noop'
+  )),
+  target_entity_type TEXT,
+  target_entity_id TEXT,
+  narrative TEXT NOT NULL,
+  reasoning TEXT,
+  before_state TEXT,
+  after_state TEXT,
+  confidence REAL,
+  reverted_at TEXT,
+  reverted_by TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_agent_actions_mission ON agent_actions(mission_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_agent_actions_target ON agent_actions(target_entity_type, target_entity_id);
+CREATE INDEX IF NOT EXISTS idx_agent_actions_source_msg ON agent_actions(source_message_id);
+
 -- Index composites mission-first (chantier 1)
 CREATE INDEX IF NOT EXISTS idx_weeks_mission ON weeks(mission_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_mission_week ON tasks(mission_id, week_id);
