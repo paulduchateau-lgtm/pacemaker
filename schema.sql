@@ -1,3 +1,26 @@
+-- =========================================================================
+-- Chantier 1 (multi-mission) : table missions + colonne mission_id partout.
+-- Les colonnes mission_id sont ajoutées par la migration (additive, nullable
+-- pendant toute la durée du chantier, passera NOT NULL au chantier 1.bis de
+-- nettoyage une fois le code 100 % scoped). Cf. docs/reference/.
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS missions (
+  id TEXT PRIMARY KEY,
+  slug TEXT UNIQUE NOT NULL,
+  label TEXT NOT NULL,
+  client TEXT,
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','archived')),
+  theme TEXT NOT NULL DEFAULT 'liteops',
+  context TEXT,
+  owner_user_id TEXT NOT NULL DEFAULT 'paul',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_missions_status ON missions(status, owner_user_id);
+
 CREATE TABLE IF NOT EXISTS weeks (
   id INTEGER PRIMARY KEY,
   phase TEXT NOT NULL,
@@ -9,7 +32,8 @@ CREATE TABLE IF NOT EXISTS weeks (
   start_date TEXT,
   end_date TEXT,
   baseline_start_date TEXT,
-  baseline_end_date TEXT
+  baseline_end_date TEXT,
+  mission_id TEXT REFERENCES missions(id)
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -24,7 +48,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   jh_estime REAL,
   livrables_generes TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  completed_at TEXT
+  completed_at TEXT,
+  mission_id TEXT REFERENCES missions(id)
 );
 
 CREATE TABLE IF NOT EXISTS task_attachments (
@@ -42,7 +67,8 @@ CREATE TABLE IF NOT EXISTS risks (
   impact INTEGER NOT NULL CHECK (impact BETWEEN 1 AND 5),
   probability INTEGER NOT NULL CHECK (probability BETWEEN 1 AND 5),
   status TEXT NOT NULL DEFAULT 'actif',
-  mitigation TEXT NOT NULL DEFAULT ''
+  mitigation TEXT NOT NULL DEFAULT '',
+  mission_id TEXT REFERENCES missions(id)
 );
 
 CREATE TABLE IF NOT EXISTS livrables (
@@ -50,7 +76,8 @@ CREATE TABLE IF NOT EXISTS livrables (
   week_id INTEGER NOT NULL REFERENCES weeks(id),
   label TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'planifié',
-  delivery_date TEXT
+  delivery_date TEXT,
+  mission_id TEXT REFERENCES missions(id)
 );
 
 CREATE TABLE IF NOT EXISTS rapports (
@@ -59,7 +86,8 @@ CREATE TABLE IF NOT EXISTS rapports (
   etat TEXT NOT NULL,
   complexite TEXT NOT NULL DEFAULT 'moyenne',
   lot INTEGER NOT NULL DEFAULT 1,
-  week_id INTEGER REFERENCES weeks(id)
+  week_id INTEGER REFERENCES weeks(id),
+  mission_id TEXT REFERENCES missions(id)
 );
 
 CREATE TABLE IF NOT EXISTS events (
@@ -68,7 +96,8 @@ CREATE TABLE IF NOT EXISTS events (
   label TEXT NOT NULL,
   week_id INTEGER NOT NULL,
   date TEXT NOT NULL DEFAULT (datetime('now')),
-  content TEXT DEFAULT ''
+  content TEXT DEFAULT '',
+  mission_id TEXT REFERENCES missions(id)
 );
 
 CREATE TABLE IF NOT EXISTS documents (
@@ -79,7 +108,8 @@ CREATE TABLE IF NOT EXISTS documents (
   week_id INTEGER REFERENCES weeks(id),
   blob_url TEXT,
   content TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  mission_id TEXT REFERENCES missions(id)
 );
 
 CREATE TABLE IF NOT EXISTS doc_chunks (
@@ -111,7 +141,8 @@ CREATE TABLE IF NOT EXISTS schedule_changes (
   change_type TEXT NOT NULL DEFAULT 'deviation',
   cascaded INTEGER NOT NULL DEFAULT 0,
   reason TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  mission_id TEXT REFERENCES missions(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_docs_type ON documents(type);
@@ -128,7 +159,8 @@ CREATE TABLE IF NOT EXISTS generations (
   raw_output TEXT NOT NULL,
   applied_rules TEXT NOT NULL DEFAULT '[]',
   week_id INTEGER,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  mission_id TEXT REFERENCES missions(id)
 );
 
 -- Apprentissage continu : corrections utilisateur + règles apprises
@@ -142,7 +174,8 @@ CREATE TABLE IF NOT EXISTS corrections (
   generation_type TEXT NOT NULL,
   applied_count INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'active',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  mission_id TEXT REFERENCES missions(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_generations_type ON generations(generation_type);
@@ -150,3 +183,15 @@ CREATE INDEX IF NOT EXISTS idx_generations_week ON generations(week_id);
 CREATE INDEX IF NOT EXISTS idx_corrections_gen_id ON corrections(generation_id);
 CREATE INDEX IF NOT EXISTS idx_corrections_type ON corrections(generation_type, status);
 CREATE INDEX IF NOT EXISTS rules_embedding_idx ON corrections(libsql_vector_idx(rule_embedding));
+
+-- Index composites mission-first (chantier 1)
+CREATE INDEX IF NOT EXISTS idx_weeks_mission ON weeks(mission_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_mission_week ON tasks(mission_id, week_id);
+CREATE INDEX IF NOT EXISTS idx_risks_mission ON risks(mission_id);
+CREATE INDEX IF NOT EXISTS idx_livrables_mission_week ON livrables(mission_id, week_id);
+CREATE INDEX IF NOT EXISTS idx_rapports_mission ON rapports(mission_id);
+CREATE INDEX IF NOT EXISTS idx_events_mission_date ON events(mission_id, date);
+CREATE INDEX IF NOT EXISTS idx_documents_mission ON documents(mission_id);
+CREATE INDEX IF NOT EXISTS idx_generations_mission ON generations(mission_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_corrections_mission ON corrections(mission_id, generation_type);
+CREATE INDEX IF NOT EXISTS idx_schedule_changes_mission ON schedule_changes(mission_id, week_id);

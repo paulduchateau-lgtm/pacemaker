@@ -36,3 +36,7 @@ yarn-error.log*
 next-env.d.ts
 .env.production
 .env.local
+
+# local tooling (claude-code launch configs, legacy seed scratchpad)
+.claude/
+seed/
