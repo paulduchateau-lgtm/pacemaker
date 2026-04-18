@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callLLM, parseJSON } from "@/lib/llm";
 import { query, execute } from "@/lib/db";
 import { buildGenerateLivrablesPrompt } from "@/lib/prompts";
+import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
@@ -16,35 +17,39 @@ interface LivrableResult {
 
 export async function POST(req: NextRequest) {
   try {
+    const mission = await resolveActiveMission(req);
     const { taskId } = await req.json();
 
-    const rows = await query("SELECT * FROM tasks WHERE id = ?", [taskId]);
+    const rows = await query(
+      "SELECT * FROM tasks WHERE id = ? AND mission_id = ?",
+      [taskId, mission.id],
+    );
     if (rows.length === 0) {
       return NextResponse.json(
         { error: "Tâche non trouvée" },
-        { status: 404 }
+        { status: 404 },
       );
     }
     const task = rows[0];
 
-    const weekRows = await query("SELECT * FROM weeks WHERE id = ?", [
-      task.week_id,
-    ]);
+    const weekRows = await query(
+      "SELECT * FROM weeks WHERE id = ? AND mission_id = ?",
+      [task.week_id, mission.id],
+    );
     const week = weekRows[0];
 
     const { getRelevantContext } = await import("@/lib/rag");
     const ragContext = await getRelevantContext(
       `${task.label} ${task.description || ""}`,
-      task.week_id as number
+      { weekId: task.week_id as number, missionId: mission.id },
     );
 
     const { getRelevantRules } = await import("@/lib/rules");
     const { trackGeneration } = await import("@/lib/corrections");
 
-    // Fetch existing deliverables from other tasks to avoid duplicates
     const allTasks = await query(
-      "SELECT livrables_generes FROM tasks WHERE id != ? AND livrables_generes IS NOT NULL",
-      [taskId]
+      "SELECT livrables_generes FROM tasks WHERE id != ? AND mission_id = ? AND livrables_generes IS NOT NULL",
+      [taskId, mission.id],
     );
     const existingLivrables: string[] = [];
     for (const t of allTasks) {
@@ -60,9 +65,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const rules = await getRelevantRules("livrables", { weekId: week.id as number, taskLabel: task.label as string });
+    const rules = await getRelevantRules(
+      "livrables",
+      { weekId: week.id as number, taskLabel: task.label as string },
+      { missionId: mission.id },
+    );
     const { getMissionContext } = await import("@/lib/mission-context");
-    const missionContext = await getMissionContext();
+    const missionContext = await getMissionContext({ missionId: mission.id });
     const prompt = buildGenerateLivrablesPrompt(
       {
         label: task.label as string,
@@ -78,7 +87,7 @@ export async function POST(req: NextRequest) {
       ragContext,
       rules,
       existingLivrables,
-      missionContext
+      missionContext,
     );
 
     const result = await callLLM(prompt, 2000);
@@ -90,14 +99,15 @@ export async function POST(req: NextRequest) {
       rawOutput: result,
       appliedRuleIds: rules.map((r) => r.id),
       weekId: week.id as number,
+      missionId: mission.id,
     });
 
     const parsed = parseJSON<LivrableResult>(result);
 
     const livrables_generes = JSON.stringify(parsed);
     await execute(
-      "UPDATE tasks SET livrables_generes = ? WHERE id = ?",
-      [livrables_generes, taskId]
+      "UPDATE tasks SET livrables_generes = ? WHERE id = ? AND mission_id = ?",
+      [livrables_generes, taskId, mission.id],
     );
 
     return NextResponse.json({ ...parsed, generationId, rawOutput: result });

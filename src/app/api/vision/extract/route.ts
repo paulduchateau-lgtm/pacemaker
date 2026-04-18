@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractFromImage } from "@/lib/vision";
 import { uploadImage } from "@/lib/storage-blob";
+import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic"];
 
 export async function POST(req: NextRequest) {
   try {
+    const mission = await resolveActiveMission(req);
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
@@ -19,26 +21,23 @@ export async function POST(req: NextRequest) {
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
         { error: "Type non supporté. Formats : jpg, png, webp, heic" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (file.size > MAX_SIZE) {
       return NextResponse.json(
         { error: "Fichier trop volumineux (max 10 MB)" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Upload to Vercel Blob
     const buffer = Buffer.from(await file.arrayBuffer());
     const filename = `capture-${Date.now()}.jpg`;
     const blobUrl = await uploadImage(buffer, filename);
 
-    // Extract with Claude Vision
     const extraction = await extractFromImage(blobUrl);
 
-    // Track generation for learning
     const { trackGeneration } = await import("@/lib/corrections");
     const generationId = await trackGeneration({
       generationType: "vision",
@@ -46,9 +45,15 @@ export async function POST(req: NextRequest) {
       prompt: "[Vision API — image extraction]",
       rawOutput: JSON.stringify(extraction),
       appliedRuleIds: [],
+      missionId: mission.id,
     });
 
-    return NextResponse.json({ blobUrl, extraction, generationId, rawOutput: JSON.stringify(extraction) });
+    return NextResponse.json({
+      blobUrl,
+      extraction,
+      generationId,
+      rawOutput: JSON.stringify(extraction),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";
     return NextResponse.json({ error: message }, { status: 500 });

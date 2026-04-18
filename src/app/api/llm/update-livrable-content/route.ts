@@ -5,22 +5,15 @@ import { parseLivrablePayload } from "@/lib/livrables/validate";
 import { markdownToPayload } from "@/lib/livrables/fallback";
 import { renderLivrable, detectFormat } from "@/lib/livrables/render";
 import { getLivrableTheme } from "@/lib/livrables/theme-store";
+import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Applique un contenu corrigé à un livrable existant :
- * - remplace l'aiContent dans task.livrables_generes.livrables[index]
- * - régénère le fichier (DOCX/XLSX/PPTX) avec le nouveau contenu et le thème courant
- * - uploade le nouveau blob (Vercel Blob suffixe le nom, l'ancienne URL reste accessible)
- *
- * Le correctedContent peut être :
- *   - un LivrablePayload JSON (cas nominal, issu de la modale de correction)
- *   - du markdown (fallback si l'utilisateur a collé du texte brut)
- */
 export async function POST(req: NextRequest) {
   try {
-    const { taskId, livrableIndex, correctedContent, themeId } = await req.json();
+    const mission = await resolveActiveMission(req);
+    const { taskId, livrableIndex, correctedContent, themeId } =
+      await req.json();
 
     if (
       typeof taskId !== "string" ||
@@ -29,11 +22,14 @@ export async function POST(req: NextRequest) {
     ) {
       return NextResponse.json(
         { error: "taskId, livrableIndex et correctedContent requis" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const taskRows = await query("SELECT * FROM tasks WHERE id = ?", [taskId]);
+    const taskRows = await query(
+      "SELECT * FROM tasks WHERE id = ? AND mission_id = ?",
+      [taskId, mission.id],
+    );
     if (taskRows.length === 0) {
       return NextResponse.json({ error: "Tâche non trouvée" }, { status: 404 });
     }
@@ -50,14 +46,14 @@ export async function POST(req: NextRequest) {
     ) {
       return NextResponse.json(
         { error: "Livrable introuvable à cet index" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     const livrable = livrablesData.livrables[livrableIndex];
-    const resolvedThemeId = themeId || (await getLivrableTheme());
+    const resolvedThemeId =
+      themeId || (await getLivrableTheme({ missionId: mission.id }));
 
-    // Tente JSON d'abord, fallback markdown sinon
     const parsed =
       parseLivrablePayload(correctedContent) ??
       markdownToPayload(correctedContent, {
@@ -71,10 +67,14 @@ export async function POST(req: NextRequest) {
       format: extension,
     });
 
-    const blob = await put(`pacemaker/livrables/${result.filename}`, result.buffer, {
-      access: "public",
-      contentType: result.contentType,
-    });
+    const blob = await put(
+      `pacemaker/livrables/${result.filename}`,
+      result.buffer,
+      {
+        access: "public",
+        contentType: result.contentType,
+      },
+    );
 
     livrablesData.livrables[livrableIndex] = {
       ...livrable,
@@ -83,8 +83,8 @@ export async function POST(req: NextRequest) {
     };
 
     await execute(
-      "UPDATE tasks SET livrables_generes = ? WHERE id = ?",
-      [JSON.stringify(livrablesData), taskId]
+      "UPDATE tasks SET livrables_generes = ? WHERE id = ? AND mission_id = ?",
+      [JSON.stringify(livrablesData), taskId, mission.id],
     );
 
     return NextResponse.json({

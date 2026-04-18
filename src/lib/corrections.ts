@@ -5,6 +5,7 @@ import type { GenerationType } from "@/types";
 
 /**
  * Track a LLM generation for future correction.
+ * `missionId` est scopant : chaque génération appartient à UNE mission.
  */
 export async function trackGeneration(params: {
   generationType: GenerationType;
@@ -13,11 +14,13 @@ export async function trackGeneration(params: {
   rawOutput: string;
   appliedRuleIds: string[];
   weekId?: number;
+  missionId: string;
 }): Promise<string> {
   const id = `gen-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   await execute(
-    `INSERT INTO generations (id, generation_type, context, prompt, raw_output, applied_rules, week_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO generations
+       (id, generation_type, context, prompt, raw_output, applied_rules, week_id, mission_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       params.generationType,
@@ -26,14 +29,14 @@ export async function trackGeneration(params: {
       params.rawOutput,
       JSON.stringify(params.appliedRuleIds),
       params.weekId ?? null,
-    ]
+      params.missionId,
+    ],
   );
 
-  // Increment applied_count on used rules
   for (const ruleId of params.appliedRuleIds) {
     await execute(
       `UPDATE corrections SET applied_count = applied_count + 1 WHERE id = ?`,
-      [ruleId]
+      [ruleId],
     );
   }
 
@@ -42,14 +45,19 @@ export async function trackGeneration(params: {
 
 /**
  * Process a user correction: extract a rule via LLM, embed it, store it.
+ * La correction est attachée à la mission d'origine de la génération.
  */
 export async function processCorrection(
   generationId: string,
-  correctedOutput: string
+  correctedOutput: string,
 ): Promise<{ id: string; ruleLearned: string; diffSummary: string }> {
-  const rows = await query("SELECT * FROM generations WHERE id = ?", [generationId]);
+  const rows = await query(
+    "SELECT * FROM generations WHERE id = ?",
+    [generationId],
+  );
   if (rows.length === 0) throw new Error("Génération non trouvée");
   const gen = rows[0];
+  const missionId = (gen.mission_id as string | null) ?? null;
 
   const analysisPrompt = `Tu analyses la correction d'une génération LLM pour en extraire une règle réutilisable.
 
@@ -91,8 +99,9 @@ Réponds UNIQUEMENT en JSON sans backticks :
 
   const corrId = `corr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   await execute(
-    `INSERT INTO corrections (id, generation_id, corrected_output, diff_summary, rule_learned, rule_embedding, generation_type)
-     VALUES (?, ?, ?, ?, ?, vector(?), ?)`,
+    `INSERT INTO corrections
+       (id, generation_id, corrected_output, diff_summary, rule_learned, rule_embedding, generation_type, mission_id)
+     VALUES (?, ?, ?, ?, ?, vector(?), ?, ?)`,
     [
       corrId,
       generationId,
@@ -101,7 +110,8 @@ Réponds UNIQUEMENT en JSON sans backticks :
       rule_learned,
       embeddingBlob,
       gen.generation_type as string,
-    ]
+      missionId,
+    ],
   );
 
   return { id: corrId, ruleLearned: rule_learned, diffSummary: diff_summary };

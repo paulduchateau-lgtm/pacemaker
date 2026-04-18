@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callLLM, parseJSON } from "@/lib/llm";
-
-export const dynamic = "force-dynamic";
 import { buildGenerateTasksPrompt } from "@/lib/prompts";
 import { query, execute } from "@/lib/db";
+import { resolveActiveMission } from "@/lib/mission";
 import type { Week, Task } from "@/types";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
+    const mission = await resolveActiveMission(req);
     const { weekId } = await req.json();
 
-    const weekRows = await query("SELECT * FROM weeks WHERE id = ?", [weekId]);
+    const weekRows = await query(
+      "SELECT * FROM weeks WHERE id = ? AND mission_id = ?",
+      [weekId, mission.id],
+    );
     if (weekRows.length === 0) {
-      return NextResponse.json({ error: "Semaine non trouvée" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Semaine non trouvée" },
+        { status: 404 },
+      );
     }
 
     const w = weekRows[0];
@@ -30,12 +38,19 @@ export async function POST(req: NextRequest) {
       baselineEndDate: (w.baseline_end_date as string) || null,
     };
 
-    const taskRows = await query("SELECT * FROM tasks WHERE week_id = ?", [weekId]);
+    const taskRows = await query(
+      "SELECT * FROM tasks WHERE week_id = ? AND mission_id = ?",
+      [weekId, mission.id],
+    );
     const existingTasks = taskRows.map(mapTask);
 
-    const prevRows = weekId > 1
-      ? await query("SELECT * FROM tasks WHERE week_id = ?", [weekId - 1])
-      : [];
+    const prevRows =
+      weekId > 1
+        ? await query(
+            "SELECT * FROM tasks WHERE week_id = ? AND mission_id = ?",
+            [weekId - 1, mission.id],
+          )
+        : [];
     const prevWeekTasks = prevRows.map(mapTask);
 
     const { getRelevantContext } = await import("@/lib/rag");
@@ -45,11 +60,22 @@ export async function POST(req: NextRequest) {
 
     const ragContext = await getRelevantContext(
       `${week.title} ${week.phase} ${week.actions.join(" ")}`,
-      weekId
+      { weekId, missionId: mission.id },
     );
-    const rules = await getRelevantRules("tasks", { weekId, phase: week.phase });
-    const missionContext = await getMissionContext();
-    const prompt = buildGenerateTasksPrompt(week, existingTasks, prevWeekTasks, ragContext, rules, missionContext);
+    const rules = await getRelevantRules(
+      "tasks",
+      { weekId, phase: week.phase },
+      { missionId: mission.id },
+    );
+    const missionContext = await getMissionContext({ missionId: mission.id });
+    const prompt = buildGenerateTasksPrompt(
+      week,
+      existingTasks,
+      prevWeekTasks,
+      ragContext,
+      rules,
+      missionContext,
+    );
     const result = await callLLM(prompt, 2000);
 
     const generationId = await trackGeneration({
@@ -59,18 +85,24 @@ export async function POST(req: NextRequest) {
       rawOutput: result,
       appliedRuleIds: rules.map((r) => r.id),
       weekId,
+      missionId: mission.id,
     });
 
-    const generated = parseJSON<{ label: string; owner: string; priority: string }[]>(result);
+    const generated = parseJSON<
+      { label: string; owner: string; priority: string }[]
+    >(result);
 
     const created: Task[] = [];
     for (const g of generated) {
       const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       await execute(
-        "INSERT INTO tasks (id, week_id, label, owner, priority, source) VALUES (?, ?, ?, ?, ?, 'llm')",
-        [id, weekId, g.label, g.owner, g.priority]
+        "INSERT INTO tasks (id, week_id, label, owner, priority, source, mission_id) VALUES (?, ?, ?, ?, ?, 'llm', ?)",
+        [id, weekId, g.label, g.owner, g.priority, mission.id],
       );
-      const rows = await query("SELECT * FROM tasks WHERE id = ?", [id]);
+      const rows = await query(
+        "SELECT * FROM tasks WHERE id = ? AND mission_id = ?",
+        [id, mission.id],
+      );
       created.push(mapTask(rows[0]));
     }
 

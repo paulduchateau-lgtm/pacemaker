@@ -3,28 +3,43 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { DEFAULT_MISSION_SLUG } from "@/lib/mission-constants";
 
-const MAIN_ITEMS = [
-  { href: "/admin", label: "Backlog", icon: "\u25B6" },
-  { href: "/admin/capture", label: "Capture", icon: "\u25C6" },
-  { href: "/admin/docs", label: "Docs", icon: "\u2605" },
-];
+type Props = { missionSlug?: string };
 
-const MORE_ITEMS = [
-  { href: "/admin/risques", label: "Risques" },
-  { href: "/admin/journal", label: "Journal" },
-  { href: "/admin/regles", label: "Règles" },
-  { href: "/admin/contexte", label: "Contexte" },
-  { href: "/client", label: "Vue client" },
-];
+function slugFromPath(pathname: string): string {
+  const m = pathname.match(/^\/(?:admin\/missions|client)\/([^/]+)/);
+  if (m && m[1] && m[1] !== "new") return m[1];
+  return DEFAULT_MISSION_SLUG;
+}
 
-export default function BottomBar() {
+function items(slug: string) {
+  const base = `/admin/missions/${slug}`;
+  return {
+    main: [
+      { href: base, label: "Backlog", icon: "\u25B6", exact: true },
+      { href: `${base}/capture`, label: "Capture", icon: "\u25C6" },
+      { href: `${base}/docs`, label: "Docs", icon: "\u2605" },
+    ],
+    more: [
+      { href: `${base}/risques`, label: "Risques" },
+      { href: `${base}/journal`, label: "Journal" },
+      { href: `${base}/regles`, label: "Règles" },
+      { href: `${base}/contexte`, label: "Contexte" },
+      { href: `/client/${slug}`, label: "Vue client" },
+      { href: "/admin/missions", label: "Missions" },
+    ],
+  };
+}
+
+export default function BottomBar({ missionSlug }: Props) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const slug = missionSlug ?? slugFromPath(pathname);
+  const { main, more } = items(slug);
 
   return (
     <>
-      {/* Drawer overlay */}
       {drawerOpen && (
         <div
           className="lg:hidden fixed inset-0 z-40 bg-black/50"
@@ -35,7 +50,7 @@ export default function BottomBar() {
             style={{ backgroundColor: "var(--color-ink)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            {MORE_ITEMS.map((item) => (
+            {more.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -55,7 +70,6 @@ export default function BottomBar() {
         </div>
       )}
 
-      {/* Bottom bar - mobile only */}
       <nav
         className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex items-stretch"
         style={{
@@ -64,11 +78,10 @@ export default function BottomBar() {
           height: "56px",
         }}
       >
-        {MAIN_ITEMS.map((item) => {
-          const isActive =
-            item.href === "/admin"
-              ? pathname === "/admin"
-              : pathname.startsWith(item.href);
+        {main.map((item) => {
+          const isActive = item.exact
+            ? pathname === item.href
+            : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

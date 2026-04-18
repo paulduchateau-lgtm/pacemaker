@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const mission = await resolveActiveMission(req);
   const rows = await query(
-    "SELECT * FROM schedule_changes ORDER BY created_at DESC"
+    "SELECT * FROM schedule_changes WHERE mission_id = ? ORDER BY created_at DESC",
+    [mission.id],
   );
   const changes = rows.map((r) => ({
     id: r.id,
