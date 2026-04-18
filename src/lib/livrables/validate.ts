@@ -5,11 +5,11 @@ import type { Block, LivrablePayload, Sheet } from "./types";
  * Retourne le payload typé, ou null si invalide.
  */
 export function parseLivrablePayload(raw: string): LivrablePayload | null {
+  const candidate = extractJsonObject(raw);
+  if (!candidate) return null;
   let json: unknown;
   try {
-    // Tolère un JSON encadré de ```json ... ``` ou de texte parasite
-    const cleaned = stripFences(raw).trim();
-    json = JSON.parse(cleaned);
+    json = JSON.parse(candidate);
   } catch {
     return null;
   }
@@ -34,10 +34,41 @@ export function parseLivrablePayload(raw: string): LivrablePayload | null {
   };
 }
 
-function stripFences(s: string): string {
+/**
+ * Extrait le premier objet JSON `{...}` au sens des accolades équilibrées,
+ * tolérant préambule, fences ```json et texte parasite.
+ * Ignore les accolades dans les chaînes de caractères et gère les \" échappés.
+ */
+function extractJsonObject(s: string): string | null {
+  // 1. Fences ```json ... ```
   const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenced) return fenced[1];
-  return s;
+  const source = fenced ? fenced[1] : s;
+
+  // 2. Balance d'accolades depuis le premier `{`
+  const start = source.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < source.length; i++) {
+    const ch = source[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      if (ch === "\\") escape = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return source.substring(start, i + 1);
+    }
+  }
+  return null;
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {

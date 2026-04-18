@@ -50,29 +50,39 @@ export async function POST(req: NextRequest) {
     const prompt = customPrompt || defaultPrompt;
 
     // 1re tentative
+    console.log(`[create-livrable] start taskId=${taskId} theme=${resolvedThemeId} format=${format}`);
+    const t0 = Date.now();
     let aiContent = await callLLM(prompt, 4000);
+    console.log(`[create-livrable] llm#1 done in ${Date.now() - t0}ms, ${aiContent.length} chars`);
     let payload = parseLivrablePayload(aiContent);
+    let usedFallback = false;
 
-    // Retry si JSON invalide
+    // Fallback : on traite la sortie comme markdown (pas de retry LLM — coût trop élevé).
+    // Le parser est déjà tolérant (fences + accolades équilibrées).
     if (!payload) {
-      const retryPrompt = `${prompt}\n\nTA RÉPONSE PRÉCÉDENTE N'ÉTAIT PAS UN JSON VALIDE.
-Retourne UNIQUEMENT un objet JSON conforme au schéma LivrablePayload, sans aucun texte autour ni balise \`\`\`.`;
-      aiContent = await callLLM(retryPrompt, 4000);
-      payload = parseLivrablePayload(aiContent);
-    }
-
-    // Fallback final : on traite la sortie comme markdown
-    if (!payload) {
+      console.warn(`[create-livrable] JSON invalide, fallback markdown. Preview: ${aiContent.slice(0, 200)}`);
       payload = markdownToPayload(aiContent, { title: titre, subtitle: description });
+      usedFallback = true;
     }
 
     const extension = detectFormat(format);
-    const result = await renderLivrable(payload, { themeId: resolvedThemeId, format: extension });
+    let result;
+    try {
+      result = await renderLivrable(payload, { themeId: resolvedThemeId, format: extension });
+    } catch (renderErr) {
+      const msg = renderErr instanceof Error ? renderErr.message : String(renderErr);
+      console.error(`[create-livrable] render ${extension} failed:`, msg);
+      // Dernier filet : rendu DOCX minimal via fallback markdown
+      const fallbackPayload = markdownToPayload(aiContent, { title: titre, subtitle: description });
+      result = await renderLivrable(fallbackPayload, { themeId: resolvedThemeId, format: "docx" });
+      usedFallback = true;
+    }
 
     const blob = await put(`pacemaker/livrables/${result.filename}`, result.buffer, {
       access: "public",
       contentType: result.contentType,
     });
+    console.log(`[create-livrable] ok in ${Date.now() - t0}ms, fallback=${usedFallback}, url=${blob.url}`);
 
     const { trackGeneration } = await import("@/lib/corrections");
     const generationId = await trackGeneration({
@@ -103,6 +113,8 @@ Retourne UNIQUEMENT un objet JSON conforme au schéma LivrablePayload, sans aucu
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error("[create-livrable] fatal:", message, stack);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

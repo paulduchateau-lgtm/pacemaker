@@ -46,6 +46,7 @@ export default function TaskDetail({ task }: { task: Task }) {
   const [newFormat, setNewFormat] = useState("docx");
   const [promptEditorIdx, setPromptEditorIdx] = useState<number | null>(null);
   const [viewerIdx, setViewerIdx] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const dirty = desc !== (task.description || "");
@@ -84,6 +85,7 @@ export default function TaskDetail({ task }: { task: Task }) {
   ) => {
     setPromptEditorIdx(null);
     setCreatingIdx(index);
+    setError(null);
     try {
       const res = await fetch("/api/llm/create-livrable", {
         method: "POST",
@@ -96,7 +98,6 @@ export default function TaskDetail({ task }: { task: Task }) {
       });
       if (res.ok) {
         const data = await res.json();
-        // Update livrable in-place with url + aiContent + generationId
         if (livrables) {
           livrables.livrables[index] = {
             ...livrables.livrables[index],
@@ -107,11 +108,19 @@ export default function TaskDetail({ task }: { task: Task }) {
           updateTaskLivrables(task.id, JSON.stringify(livrables));
         }
         fetchDocs();
-        // Open viewer instead of new tab
         setViewerIdx(index);
+      } else {
+        let detail = `Erreur ${res.status}`;
+        try {
+          const payload = await res.json();
+          if (payload?.error) detail = `${detail} : ${payload.error}`;
+        } catch {
+          // ignore
+        }
+        setError(detail);
       }
-    } catch {
-      // silent
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur réseau lors de la génération");
     }
     setCreatingIdx(null);
   };
@@ -288,6 +297,30 @@ export default function TaskDetail({ task }: { task: Task }) {
                 ANNULER
               </Button>
             </div>
+          </div>
+        )}
+
+        {error && (
+          <div
+            className="flex items-start justify-between gap-3 px-3 py-2 border"
+            style={{
+              borderColor: "var(--color-alert)",
+              backgroundColor: "#FDECEA",
+              borderRadius: "6px",
+            }}
+          >
+            <div className="flex-1 text-xs" style={{ color: "var(--color-alert)" }}>
+              <span className="font-mono uppercase tracking-wider mr-2">⚠ ÉCHEC</span>
+              {error}
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-xs opacity-60 hover:opacity-100 min-w-[28px] min-h-[28px]"
+              style={{ color: "var(--color-alert)" }}
+              aria-label="Fermer"
+            >
+              ✕
+            </button>
           </div>
         )}
 
