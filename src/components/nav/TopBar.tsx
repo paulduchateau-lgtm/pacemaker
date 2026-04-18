@@ -3,20 +3,41 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import RulesCounter from "@/components/corrections/RulesCounter";
+import { DEFAULT_MISSION_SLUG } from "@/lib/mission-constants";
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "Backlog" },
-  { href: "/admin/risques", label: "Risques" },
-  { href: "/admin/journal", label: "Journal" },
-  { href: "/admin/capture", label: "Capture" },
-  { href: "/admin/docs", label: "Docs" },
-  { href: "/admin/regles", label: "Règles" },
-  { href: "/admin/contexte", label: "Contexte" },
-];
+type Props = {
+  missionSlug?: string;
+  missionLabel?: string;
+};
 
-export default function TopBar() {
+function slugFromPath(pathname: string): string {
+  const m = pathname.match(/^\/(?:admin\/missions|client)\/([^/]+)/);
+  if (m && m[1] && m[1] !== "new") return m[1];
+  return DEFAULT_MISSION_SLUG;
+}
+
+function buildNav(slug: string) {
+  const base = `/admin/missions/${slug}`;
+  return [
+    { href: base, label: "Backlog", exact: true },
+    { href: `${base}/risques`, label: "Risques" },
+    { href: `${base}/journal`, label: "Journal" },
+    { href: `${base}/capture`, label: "Capture" },
+    { href: `${base}/docs`, label: "Docs" },
+    { href: `${base}/regles`, label: "Règles" },
+    { href: `${base}/contexte`, label: "Contexte" },
+  ];
+}
+
+export default function TopBar({ missionSlug, missionLabel }: Props) {
   const pathname = usePathname();
   const isClient = pathname.startsWith("/client");
+  const slug = missionSlug ?? slugFromPath(pathname);
+  const items = buildNav(slug);
+  const backlog = items[0].href;
+  const toggleTarget = isClient
+    ? `/admin/missions/${slug}`
+    : `/client/${slug}`;
 
   return (
     <header
@@ -25,22 +46,36 @@ export default function TopBar() {
     >
       <div className="max-w-4xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-4 lg:gap-6">
-          <Link href="/admin" className="font-mono text-sm font-medium tracking-wider">
+          <Link
+            href={backlog}
+            className="font-mono text-sm font-medium tracking-wider"
+          >
             PACEMAKER
           </Link>
+          {missionLabel && (
+            <Link
+              href="/admin/missions"
+              className="hidden lg:inline mono-label"
+              style={{ color: "var(--color-muted)" }}
+              title="Voir toutes les missions"
+            >
+              {missionLabel}
+            </Link>
+          )}
           <nav className="hidden lg:flex gap-4">
-            {NAV_ITEMS.map((item) => {
-              const isActive =
-                item.href === "/admin"
-                  ? pathname === "/admin"
-                  : pathname.startsWith(item.href);
+            {items.map((item) => {
+              const isActive = item.exact
+                ? pathname === item.href
+                : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className="mono-label transition-colors"
                   style={{
-                    color: isActive ? "var(--color-green)" : "var(--color-paper)",
+                    color: isActive
+                      ? "var(--color-green)"
+                      : "var(--color-paper)",
                     opacity: isActive ? 1 : 0.6,
                   }}
                 >
@@ -52,10 +87,10 @@ export default function TopBar() {
         </div>
         <div className="flex items-center gap-4">
           <div className="hidden lg:block">
-            <RulesCounter />
+            <RulesCounter missionSlug={slug} />
           </div>
           <Link
-            href={isClient ? "/admin" : "/client"}
+            href={toggleTarget}
             className="mono-label"
             style={{ color: "var(--color-muted)" }}
           >

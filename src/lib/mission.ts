@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { query, execute } from "./db";
+import { ACTIVE_MISSION_COOKIE, DEFAULT_MISSION_SLUG } from "./mission-constants";
 import type {
   CreateMissionInput,
   Mission,
@@ -7,14 +8,7 @@ import type {
   UpdateMissionInput,
 } from "@/types";
 
-export const ACTIVE_MISSION_COOKIE = "active_mission_slug";
-
-/**
- * Slug par défaut utilisé pendant toute la phase de transition du chantier 1
- * (middleware de redirection + fallback serveur). Supprimé une fois que l'UI
- * de sélection de mission est stable et que `mission_id` devient NOT NULL.
- */
-export const DEFAULT_MISSION_SLUG = "agirc-arrco-2026";
+export { ACTIVE_MISSION_COOKIE, DEFAULT_MISSION_SLUG } from "./mission-constants";
 
 const SLUG_REGEX = /^[a-z0-9-]+$/;
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;

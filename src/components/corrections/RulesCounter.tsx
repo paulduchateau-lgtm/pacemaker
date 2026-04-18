@@ -3,9 +3,13 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { useStore } from "@/store";
+import { DEFAULT_MISSION_SLUG } from "@/lib/mission-constants";
 
-export default function RulesCounter() {
+type Props = { missionSlug?: string };
+
+export default function RulesCounter({ missionSlug }: Props) {
   const { rulesStats, fetchRulesStats } = useStore();
+  const slug = missionSlug ?? DEFAULT_MISSION_SLUG;
 
   useEffect(() => {
     fetchRulesStats();
@@ -15,7 +19,7 @@ export default function RulesCounter() {
 
   return (
     <Link
-      href="/admin/regles"
+      href={`/admin/missions/${slug}/regles`}
       className="font-mono uppercase tracking-wider transition-colors"
       style={{
         fontSize: "10px",
