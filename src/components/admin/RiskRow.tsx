@@ -3,6 +3,7 @@
 import type { Risk, RiskStatus } from "@/types";
 import { riskScore } from "@/lib/computed";
 import { useStore } from "@/store";
+import ConfidenceGauge from "@/components/ui/ConfidenceGauge";
 
 const RISK_STATUSES: RiskStatus[] = ["actif", "mitigé", "clos"];
 
@@ -48,6 +49,9 @@ export default function RiskRow({ risk }: { risk: Risk }) {
       <span className="mono-label" style={{ color: "var(--color-muted)" }}>
         I:{risk.impact} P:{risk.probability}
       </span>
+      {risk.confidence !== null && risk.confidence !== undefined && (
+        <ConfidenceGauge value={risk.confidence} reasoning={risk.reasoning} />
+      )}
       <select
         value={risk.status}
         onChange={(e) =>

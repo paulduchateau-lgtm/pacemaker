@@ -18,8 +18,20 @@ interface ParseResult {
   // L'ancien prompt renvoyait `decisions: string[]` ; le nouveau renvoie des
   // objets enrichis. On accepte les deux formats pour ne rien casser.
   decisions: Array<RichDecision | string>;
-  actions: { label: string; owner: string; priority: string }[];
-  risks: { label: string; impact: number; probability: number }[];
+  actions: {
+    label: string;
+    owner: string;
+    priority: string;
+    confidence?: number;
+    reasoning?: string;
+  }[];
+  risks: {
+    label: string;
+    impact: number;
+    probability: number;
+    confidence?: number;
+    reasoning?: string;
+  }[];
   opportunities: string[];
 }
 
@@ -77,16 +89,37 @@ export async function POST(req: NextRequest) {
     for (const action of parsed.actions) {
       const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       await execute(
-        "INSERT INTO tasks (id, week_id, label, owner, priority, source, mission_id) VALUES (?, ?, ?, ?, ?, 'upload', ?)",
-        [id, weekId, action.label, action.owner, action.priority, mission.id],
+        `INSERT INTO tasks
+           (id, week_id, label, owner, priority, source, mission_id, confidence, reasoning)
+         VALUES (?, ?, ?, ?, ?, 'upload', ?, ?, ?)`,
+        [
+          id,
+          weekId,
+          action.label,
+          action.owner,
+          action.priority,
+          mission.id,
+          typeof action.confidence === "number" ? action.confidence : null,
+          action.reasoning ?? null,
+        ],
       );
     }
 
     for (const risk of parsed.risks) {
       const id = `risk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       await execute(
-        "INSERT INTO risks (id, label, impact, probability, mission_id) VALUES (?, ?, ?, ?, ?)",
-        [id, risk.label, risk.impact, risk.probability, mission.id],
+        `INSERT INTO risks
+           (id, label, impact, probability, mission_id, confidence, reasoning)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          risk.label,
+          risk.impact,
+          risk.probability,
+          mission.id,
+          typeof risk.confidence === "number" ? risk.confidence : null,
+          risk.reasoning ?? null,
+        ],
       );
     }
 

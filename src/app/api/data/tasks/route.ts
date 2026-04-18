@@ -8,7 +8,8 @@ export async function GET(req: NextRequest) {
   const mission = await resolveActiveMission(req);
   const rows = await query(
     `SELECT id, week_id, label, description, owner, priority, status, source,
-            jh_estime, livrables_generes, created_at, completed_at
+            jh_estime, livrables_generes, created_at, completed_at,
+            confidence, reasoning
      FROM tasks WHERE mission_id = ? ORDER BY week_id, created_at`,
     [mission.id],
   );
@@ -25,6 +26,8 @@ export async function GET(req: NextRequest) {
     livrables_generes: r.livrables_generes || null,
     createdAt: r.created_at,
     completedAt: r.completed_at || null,
+    confidence: (r.confidence as number | null) ?? null,
+    reasoning: (r.reasoning as string | null) ?? null,
   }));
 
   // Attachments sont transitifs via task_id — on ne refiltre pas par mission

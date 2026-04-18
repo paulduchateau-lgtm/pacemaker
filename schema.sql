@@ -49,7 +49,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   livrables_generes TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   completed_at TEXT,
-  mission_id TEXT REFERENCES missions(id)
+  mission_id TEXT REFERENCES missions(id),
+  -- Chantier 6 : confiance (0..1) et argumentaire court.
+  confidence REAL,
+  reasoning TEXT
 );
 
 CREATE TABLE IF NOT EXISTS task_attachments (
@@ -68,7 +71,9 @@ CREATE TABLE IF NOT EXISTS risks (
   probability INTEGER NOT NULL CHECK (probability BETWEEN 1 AND 5),
   status TEXT NOT NULL DEFAULT 'actif',
   mitigation TEXT NOT NULL DEFAULT '',
-  mission_id TEXT REFERENCES missions(id)
+  mission_id TEXT REFERENCES missions(id),
+  confidence REAL,
+  reasoning TEXT
 );
 
 CREATE TABLE IF NOT EXISTS livrables (
@@ -77,7 +82,9 @@ CREATE TABLE IF NOT EXISTS livrables (
   label TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'planifié',
   delivery_date TEXT,
-  mission_id TEXT REFERENCES missions(id)
+  mission_id TEXT REFERENCES missions(id),
+  confidence REAL,
+  reasoning TEXT
 );
 
 CREATE TABLE IF NOT EXISTS rapports (

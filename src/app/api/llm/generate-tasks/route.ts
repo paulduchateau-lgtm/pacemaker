@@ -93,15 +93,32 @@ export async function POST(req: NextRequest) {
     });
 
     const generated = parseJSON<
-      { label: string; owner: string; priority: string }[]
+      {
+        label: string;
+        owner: string;
+        priority: string;
+        confidence?: number;
+        reasoning?: string;
+      }[]
     >(result);
 
     const created: Task[] = [];
     for (const g of generated) {
       const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       await execute(
-        "INSERT INTO tasks (id, week_id, label, owner, priority, source, mission_id) VALUES (?, ?, ?, ?, ?, 'llm', ?)",
-        [id, weekId, g.label, g.owner, g.priority, mission.id],
+        `INSERT INTO tasks
+           (id, week_id, label, owner, priority, source, mission_id, confidence, reasoning)
+         VALUES (?, ?, ?, ?, ?, 'llm', ?, ?, ?)`,
+        [
+          id,
+          weekId,
+          g.label,
+          g.owner,
+          g.priority,
+          mission.id,
+          typeof g.confidence === "number" ? g.confidence : null,
+          g.reasoning ?? null,
+        ],
       );
       const rows = await query(
         "SELECT * FROM tasks WHERE id = ? AND mission_id = ?",

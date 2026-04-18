@@ -68,6 +68,8 @@ export interface Task {
   jh_estime?: number;
   livrables_generes?: string;
   attachments?: TaskAttachment[];
+  confidence?: number | null;
+  reasoning?: string | null;
 }
 
 export interface Risk {
@@ -77,6 +79,8 @@ export interface Risk {
   probability: number;
   status: RiskStatus;
   mitigation: string;
+  confidence?: number | null;
+  reasoning?: string | null;
 }
 
 export interface Livrable {
