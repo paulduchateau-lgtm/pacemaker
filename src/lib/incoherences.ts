@@ -338,6 +338,43 @@ export async function detectIncoherences(
     if (rows[0]) created.push(rowToIncoherence(rows[0]));
   }
 
+  // Chantier 04 : déclencher une recalibration automatique si l'incohérence
+  // la plus grave le justifie (shouldAutoRecalibrate). Un seul trigger par
+  // batch de détection, sur l'incohérence la plus sévère — évite les
+  // cascades infinies.
+  if (created.length > 0) {
+    try {
+      const { shouldAutoRecalibrate, performRecalibration } = await import(
+        "./recalibration"
+      );
+      const worst =
+        created.find((i) => i.severity === "major") ??
+        created.find((i) => i.kind === "constraint_change") ??
+        created[0];
+      const decision = shouldAutoRecalibrate(worst);
+      if (decision.triggered) {
+        // Best-effort : on récupère currentWeek depuis project k/v, fallback 1
+        const cwRow = await query(
+          "SELECT value FROM project WHERE key = 'current_week'",
+        );
+        const currentWeek = cwRow.length
+          ? parseInt(cwRow[0].value as string, 10) || 1
+          : 1;
+        performRecalibration({
+          missionId: params.missionId,
+          currentWeek,
+          scope: decision.scope,
+          trigger: "auto_on_incoherence",
+          triggerRef: worst.id,
+        }).catch(() => {
+          // Silent — revert reste disponible si quelque chose a été écrit.
+        });
+      }
+    } catch {
+      // recalibration module indisponible, on ignore
+    }
+  }
+
   return created;
 }
 
