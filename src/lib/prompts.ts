@@ -111,10 +111,21 @@ ${uploadText}
 Extrais les éléments structurés suivants du compte-rendu.
 Les owners possibles pour les actions sont : "Paul", "Paul B.", "Client".
 Les priorités possibles sont : "haute", "moyenne", "basse".
+Pour chaque décision, essaie d'extraire ses motifs explicites et les alternatives
+envisagées. Si le compte-rendu ne les mentionne pas, laisse ces champs vides
+(null / []) — n'invente rien. Indique aussi qui l'a prise si c'est clair dans
+le CR ("paul", "paul_b", "client"), sinon "paul" par défaut.
 
 Réponds UNIQUEMENT avec du JSON :
 {
-  "decisions": ["..."],
+  "decisions": [
+    {
+      "statement": "énoncé court de la décision",
+      "rationale": "motifs explicites (null si non mentionnés)",
+      "alternatives": ["alternative 1", "..."],
+      "author": "paul|paul_b|client"
+    }
+  ],
   "actions": [{"label": "...", "owner": "...", "priority": "..."}],
   "risks": [{"label": "...", "impact": 1, "probability": 1}],
   "opportunities": ["..."]

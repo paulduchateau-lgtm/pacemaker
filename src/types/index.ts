@@ -213,6 +213,81 @@ export interface ProjectState {
   missionStartDate: string | null;
 }
 
+// ─── Décisions enrichies (chantier 2) ───────────────────
+
+export type DecisionStatus = "proposée" | "actée" | "révisée" | "annulée";
+export type DecisionAuthor = "paul" | "paul_b" | "client" | "agent";
+export type DecisionSourceType =
+  | "manual"
+  | "parse_cr"
+  | "vision"
+  | "agent"
+  | "legacy_event";
+export type RationaleSource =
+  | "native"
+  | "legacy_no_rationale"
+  | "user_added_later"
+  | "llm_inferred";
+export type DecisionLinkEntity =
+  | "task"
+  | "risk"
+  | "livrable"
+  | "week"
+  | "document";
+export type DecisionLinkType =
+  | "impacts"
+  | "derives_from"
+  | "blocks"
+  | "supersedes";
+
+export interface Decision {
+  id: string;
+  missionId: string;
+  statement: string;
+  rationale: string | null;
+  rationaleSource: RationaleSource;
+  alternatives: string[] | null;
+  author: DecisionAuthor;
+  confidence: number | null;
+  status: DecisionStatus;
+  sourceType: DecisionSourceType;
+  sourceRef: string | null;
+  revisedFrom: string | null;
+  weekId: number | null;
+  createdAt: string;
+  actedAt: string;
+}
+
+export interface CreateDecisionInput {
+  statement: string;
+  rationale?: string | null;
+  alternatives?: string[] | null;
+  author?: DecisionAuthor;
+  confidence?: number | null;
+  status?: DecisionStatus;
+  sourceType?: DecisionSourceType;
+  sourceRef?: string | null;
+  weekId?: number | null;
+}
+
+export interface UpdateDecisionInput {
+  statement?: string;
+  rationale?: string | null;
+  rationaleSource?: RationaleSource;
+  alternatives?: string[] | null;
+  status?: DecisionStatus;
+  weekId?: number | null;
+}
+
+export interface DecisionLink {
+  id: string;
+  decisionId: string;
+  entityType: DecisionLinkEntity;
+  entityId: string;
+  linkType: DecisionLinkType;
+  createdAt: string;
+}
+
 // ─── Mission multi-tenant (chantier 1) ─────────────────
 
 export type MissionStatus = "active" | "paused" | "archived";

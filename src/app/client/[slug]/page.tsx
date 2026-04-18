@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { useStore } from "@/store";
 import { getWeekTasks } from "@/lib/computed";
 import PhaseProgress from "@/components/client/PhaseProgress";
@@ -11,18 +12,18 @@ import DecisionsTimeline from "@/components/client/DecisionsTimeline";
 import RoiStrip from "@/components/client/RoiStrip";
 
 export default function ClientDashboard() {
+  const params = useParams<{ slug: string }>();
+  const missionSlug = params?.slug ?? "";
   const {
     weeks,
     tasks,
     risks,
     livrables,
-    events,
     currentWeek,
     fetchProject,
     fetchTasks,
     fetchRisks,
     fetchLivrables,
-    fetchEvents,
   } = useStore();
   const [loaded, setLoaded] = useState(false);
 
@@ -32,9 +33,8 @@ export default function ClientDashboard() {
       fetchTasks(),
       fetchRisks(),
       fetchLivrables(),
-      fetchEvents(),
     ]).then(() => setLoaded(true));
-  }, [fetchProject, fetchTasks, fetchRisks, fetchLivrables, fetchEvents]);
+  }, [fetchProject, fetchTasks, fetchRisks, fetchLivrables]);
 
   if (!loaded) {
     return (
@@ -74,7 +74,7 @@ export default function ClientDashboard() {
         <div className="space-y-6">
           <RisksSummary risks={risks} />
           <LivrablesGrid livrables={livrables} />
-          <DecisionsTimeline events={events} />
+          <DecisionsTimeline missionSlug={missionSlug} />
         </div>
       </div>
     </div>
