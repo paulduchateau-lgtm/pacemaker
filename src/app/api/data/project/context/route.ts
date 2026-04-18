@@ -4,11 +4,13 @@ import {
   setMissionContext,
   DEFAULT_MISSION_CONTEXT,
 } from "@/lib/mission-context";
+import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const value = await getMissionContext();
+export async function GET(req: NextRequest) {
+  const mission = await resolveActiveMission(req);
+  const value = await getMissionContext({ missionId: mission.id });
   return NextResponse.json({ value, default: DEFAULT_MISSION_CONTEXT });
 }
 
@@ -20,6 +22,7 @@ export async function PATCH(req: NextRequest) {
       { status: 400 }
     );
   }
-  await setMissionContext(value);
+  const mission = await resolveActiveMission(req);
+  await setMissionContext(mission.id, value);
   return NextResponse.json({ ok: true });
 }

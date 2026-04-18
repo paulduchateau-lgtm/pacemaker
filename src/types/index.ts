@@ -212,3 +212,43 @@ export interface ProjectState {
   jh_consommes: number;
   missionStartDate: string | null;
 }
+
+// ─── Mission multi-tenant (chantier 1) ─────────────────
+
+export type MissionStatus = "active" | "paused" | "archived";
+
+export interface Mission {
+  id: string;
+  slug: string;
+  label: string;
+  client: string | null;
+  startDate: string;
+  endDate: string;
+  status: MissionStatus;
+  theme: string;
+  context: string | null;
+  ownerUserId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMissionInput {
+  slug: string;
+  label: string;
+  client?: string | null;
+  startDate: string;
+  endDate: string;
+  theme?: string;
+  context?: string | null;
+  ownerUserId?: string;
+}
+
+export interface UpdateMissionInput {
+  label?: string;
+  client?: string | null;
+  startDate?: string;
+  endDate?: string;
+  status?: MissionStatus;
+  theme?: string;
+  context?: string | null;
+}
