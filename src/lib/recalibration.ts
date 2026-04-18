@@ -452,6 +452,20 @@ export async function performRecalibration(
     /* best-effort */
   }
 
+  // Chantier 8 : trace le temps gagné (médianes validées).
+  try {
+    const { logTimeSaving } = await import("./time-savings");
+    await logTimeSaving({
+      missionId,
+      activity:
+        trigger === "manual" ? "recalibration_manual" : "recalibration_auto",
+      sourceEntityType: "recalibration",
+      sourceEntityId: recalibrationId,
+    });
+  } catch {
+    /* best-effort */
+  }
+
   return {
     recalibrationId,
     tasksAdded: insertedIds.length,

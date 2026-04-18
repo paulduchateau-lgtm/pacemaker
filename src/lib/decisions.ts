@@ -150,6 +150,22 @@ export async function createDecision(
     /* journal est best-effort */
   }
 
+  // Chantier 8 : temps gagné seulement si la décision est argumentée
+  // (rationale non-vide) — pas de log si c'est juste un statement nu.
+  if (input.rationale && input.rationale.trim().length > 0) {
+    try {
+      const { logTimeSaving } = await import("./time-savings");
+      await logTimeSaving({
+        missionId,
+        activity: "decision_captured_rich",
+        sourceEntityType: "decision",
+        sourceEntityId: id,
+      });
+    } catch {
+      /* best-effort */
+    }
+  }
+
   return created;
 }
 

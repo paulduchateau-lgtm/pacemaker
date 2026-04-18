@@ -147,6 +147,19 @@ export async function POST(req: NextRequest) {
       ],
     );
 
+    // Chantier 8 : temps gagné par livrable généré.
+    try {
+      const { logTimeSaving } = await import("@/lib/time-savings");
+      await logTimeSaving({
+        missionId: mission.id,
+        activity: "livrable_generation",
+        sourceEntityType: "document",
+        sourceEntityId: docId,
+      });
+    } catch {
+      /* best-effort */
+    }
+
     return NextResponse.json({
       url: blob.url,
       filename: result.filename,

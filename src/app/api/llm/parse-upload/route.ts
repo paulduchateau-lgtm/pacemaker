@@ -185,6 +185,19 @@ export async function POST(req: NextRequest) {
       triggerGenerationId: generationId,
     });
 
+    // Chantier 8 : temps gagné par parsing CR (action user-triggered).
+    try {
+      const { logTimeSaving } = await import("@/lib/time-savings");
+      await logTimeSaving({
+        missionId: mission.id,
+        activity: "cr_parsing",
+        sourceEntityType: "document",
+        sourceEntityId: docId,
+      });
+    } catch {
+      /* best-effort */
+    }
+
     return NextResponse.json({
       decisions: parsed.decisions.length,
       actions: parsed.actions.length,

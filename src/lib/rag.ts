@@ -49,6 +49,26 @@ export async function indexDocument(docId: string, content: string): Promise<num
     );
   }
 
+  // Chantier 8 : temps gagné. Récupère mission_id depuis le document.
+  try {
+    const { logTimeSaving } = await import("./time-savings");
+    const rows = await query(
+      "SELECT mission_id FROM documents WHERE id = ? LIMIT 1",
+      [docId],
+    );
+    const missionId = rows[0]?.mission_id as string | null;
+    if (missionId) {
+      await logTimeSaving({
+        missionId,
+        activity: "doc_indexed_rag",
+        sourceEntityType: "document",
+        sourceEntityId: docId,
+      });
+    }
+  } catch {
+    /* best-effort */
+  }
+
   return chunks.length;
 }
 

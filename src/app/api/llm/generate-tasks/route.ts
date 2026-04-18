@@ -127,6 +127,19 @@ export async function POST(req: NextRequest) {
       created.push(mapTask(rows[0]));
     }
 
+    // Chantier 8 : une ligne time-savings par génération (par batch, pas par tâche)
+    try {
+      const { logTimeSaving } = await import("@/lib/time-savings");
+      await logTimeSaving({
+        missionId: mission.id,
+        activity: "task_creation_llm",
+        sourceEntityType: "generation",
+        sourceEntityId: generationId,
+      });
+    } catch {
+      /* best-effort */
+    }
+
     return NextResponse.json({ tasks: created, generationId, rawOutput: result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";
