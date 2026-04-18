@@ -283,6 +283,35 @@ CREATE INDEX IF NOT EXISTS idx_incoherences_mission_pending ON incoherences(miss
 CREATE INDEX IF NOT EXISTS idx_incoherences_source ON incoherences(mission_id, source_entity_type, source_entity_id);
 CREATE INDEX IF NOT EXISTS idx_incoherences_briefed ON incoherences(mission_id, briefed_to_user_at);
 
+-- =========================================================================
+-- Chantier 4 (recalibration automatique + revert).
+-- Chaque cycle de recalibration est tracé avec son snapshot avant / IDs des
+-- tâches insérées après. Le revert restaure le snapshot.
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS recalibrations (
+  id TEXT PRIMARY KEY,
+  mission_id TEXT NOT NULL REFERENCES missions(id),
+  trigger TEXT NOT NULL
+    CHECK(trigger IN ('manual','auto_on_incoherence','auto_on_input','scheduled')),
+  trigger_ref TEXT,
+  scope TEXT NOT NULL
+    CHECK(scope IN ('full_plan','downstream_only','single_week')),
+  changes_summary TEXT,
+  snapshot_before TEXT,
+  inserted_task_ids TEXT,
+  tasks_added INTEGER NOT NULL DEFAULT 0,
+  tasks_modified INTEGER NOT NULL DEFAULT 0,
+  tasks_removed INTEGER NOT NULL DEFAULT 0,
+  current_week INTEGER,
+  reasoning TEXT,
+  reverted_at TEXT,
+  reverted_by TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_recalibrations_mission ON recalibrations(mission_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_recalibrations_trigger ON recalibrations(mission_id, trigger, created_at);
+
 -- Index composites mission-first (chantier 1)
 CREATE INDEX IF NOT EXISTS idx_weeks_mission ON weeks(mission_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_mission_week ON tasks(mission_id, week_id);
