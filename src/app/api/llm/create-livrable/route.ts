@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callLLM } from "@/lib/llm";
+import { callLLMWithUsage } from "@/lib/llm";
 import { execute } from "@/lib/db";
 import { put } from "@vercel/blob";
 import { buildCreateLivrablePrompt } from "@/lib/prompts";
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       `[create-livrable] start taskId=${taskId} mission=${mission.slug} theme=${resolvedThemeId} format=${format}`,
     );
     const t0 = Date.now();
-    const aiContent = await callLLM(prompt, 4000);
+    const { text: aiContent, usage, model } = await callLLMWithUsage(prompt, 4000);
     console.log(
       `[create-livrable] llm#1 done in ${Date.now() - t0}ms, ${aiContent.length} chars`,
     );
@@ -127,6 +127,10 @@ export async function POST(req: NextRequest) {
       appliedRuleIds: [],
       weekId: ctx.task.weekId,
       missionId: mission.id,
+      usage,
+      model,
+      route: "llm/create-livrable",
+      triggeredBy: "user",
     });
 
     const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callLLM, parseJSON } from "@/lib/llm";
+import { callLLMWithUsage, parseJSON } from "@/lib/llm";
 import { buildRecalibrationPrompt } from "@/lib/prompts";
 import { query, execute } from "@/lib/db";
 import { resolveActiveMission } from "@/lib/mission";
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       rules,
       missionContext,
     );
-    const result = await callLLM(prompt, 4000);
+    const { text: result, usage, model } = await callLLMWithUsage(prompt, 4000);
 
     const generationId = await trackGeneration({
       generationType: "recalib",
@@ -109,6 +109,10 @@ export async function POST(req: NextRequest) {
       appliedRuleIds: rules.map((r) => r.id),
       weekId: currentWeek,
       missionId: mission.id,
+      usage,
+      model,
+      route: "llm/recalibrate",
+      triggeredBy: "user",
     });
 
     const recalib = parseJSON<RecalibResult>(result);

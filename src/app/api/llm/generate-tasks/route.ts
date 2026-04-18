@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callLLM, parseJSON } from "@/lib/llm";
+import { callLLMWithUsage, parseJSON } from "@/lib/llm";
 import { buildGenerateTasksPrompt } from "@/lib/prompts";
 import { query, execute } from "@/lib/db";
 import { resolveActiveMission } from "@/lib/mission";
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       rules,
       missionContext,
     );
-    const result = await callLLM(prompt, 2000);
+    const { text: result, usage, model } = await callLLMWithUsage(prompt, 2000);
 
     const generationId = await trackGeneration({
       generationType: "tasks",
@@ -86,6 +86,10 @@ export async function POST(req: NextRequest) {
       appliedRuleIds: rules.map((r) => r.id),
       weekId,
       missionId: mission.id,
+      usage,
+      model,
+      route: "llm/generate-tasks",
+      triggeredBy: "user",
     });
 
     const generated = parseJSON<

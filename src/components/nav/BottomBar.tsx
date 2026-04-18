@@ -24,6 +24,7 @@ function items(slug: string) {
     more: [
       { href: `${base}/risques`, label: "Risques" },
       { href: `${base}/decisions`, label: "Décisions" },
+      { href: `${base}/incoherences`, label: "Incohérences" },
       { href: `${base}/journal`, label: "Journal" },
       { href: `${base}/regles`, label: "Règles" },
       { href: `${base}/contexte`, label: "Contexte" },

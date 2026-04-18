@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callLLM, parseJSON } from "@/lib/llm";
+import { callLLMWithUsage, parseJSON } from "@/lib/llm";
 import { buildParseUploadPrompt } from "@/lib/prompts";
 import { execute } from "@/lib/db";
 import { resolveActiveMission } from "@/lib/mission";
+import { kickOffDetection } from "@/lib/incoherences";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
       rules,
       missionContext,
     );
-    const result = await callLLM(prompt, 3000);
+    const { text: result, usage, model } = await callLLMWithUsage(prompt, 3000);
 
     const generationId = await trackGeneration({
       generationType: "parse_cr",
@@ -65,6 +66,10 @@ export async function POST(req: NextRequest) {
       appliedRuleIds: rules.map((r) => r.id),
       weekId,
       missionId: mission.id,
+      usage,
+      model,
+      route: "llm/parse-upload",
+      triggeredBy: "user",
     });
 
     const parsed = parseJSON<ParseResult>(result);
@@ -137,6 +142,15 @@ export async function POST(req: NextRequest) {
       "INSERT INTO events (id, type, label, week_id, content, mission_id) VALUES (?, 'upload', ?, ?, ?, ?)",
       [evtId, `CR importé — S${weekId}`, weekId, text.slice(0, 500), mission.id],
     );
+
+    // Détection d'incohérences en arrière-plan (non-bloquante, chantier 3).
+    kickOffDetection({
+      missionId: mission.id,
+      sourceEntityType: "cr_upload",
+      sourceEntityId: docId,
+      summary: text.slice(0, 1500),
+      triggerGenerationId: generationId,
+    });
 
     return NextResponse.json({
       decisions: parsed.decisions.length,

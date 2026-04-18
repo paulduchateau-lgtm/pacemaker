@@ -22,6 +22,7 @@ function buildNav(slug: string) {
     { href: base, label: "Backlog", exact: true },
     { href: `${base}/risques`, label: "Risques" },
     { href: `${base}/decisions`, label: "Décisions" },
+    { href: `${base}/incoherences`, label: "Incohérences" },
     { href: `${base}/journal`, label: "Journal" },
     { href: `${base}/capture`, label: "Capture" },
     { href: `${base}/docs`, label: "Docs" },
