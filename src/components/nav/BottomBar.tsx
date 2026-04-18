@@ -26,6 +26,7 @@ function items(slug: string) {
       { href: `${base}/decisions`, label: "Décisions" },
       { href: `${base}/incoherences`, label: "Incohérences" },
       { href: `${base}/recalibrations`, label: "Recalibrages" },
+      { href: `${base}/journal-agent`, label: "Journal agent" },
       { href: `${base}/journal`, label: "Journal" },
       { href: `${base}/regles`, label: "Règles" },
       { href: `${base}/contexte`, label: "Contexte" },

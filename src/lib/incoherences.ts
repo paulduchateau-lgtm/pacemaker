@@ -335,7 +335,24 @@ export async function detectIncoherences(
       `SELECT ${COLS} FROM incoherences WHERE id = ?`,
       [id],
     );
-    if (rows[0]) created.push(rowToIncoherence(rows[0]));
+    if (rows[0]) {
+      created.push(rowToIncoherence(rows[0]));
+      // Journal agent unifié (chantier 7).
+      try {
+        const { logAgentAction } = await import("./agent-actions");
+        await logAgentAction({
+          missionId: params.missionId,
+          actionType: "flag_incoherence",
+          narrative: `⚠ ${p.severity ?? "moderate"} — ${p.description}`,
+          reasoning: p.auto_resolution ?? null,
+          targetEntityType: "incoherence",
+          targetEntityId: id,
+          sourceMessageId: params.sourceMessageId ?? null,
+        });
+      } catch {
+        /* best-effort */
+      }
+    }
   }
 
   // Chantier 04 : déclencher une recalibration automatique si l'incohérence

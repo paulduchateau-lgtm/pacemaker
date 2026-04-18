@@ -437,6 +437,21 @@ export async function performRecalibration(
     ],
   );
 
+  // Journal agent unifié (chantier 7) — reversible via revertRecalibration.
+  try {
+    const { logAgentAction } = await import("./agent-actions");
+    await logAgentAction({
+      missionId,
+      actionType: "recalibrate_plan",
+      narrative: `Plan recalibré (${scope}) à S${currentWeek} — +${insertedIds.length}/−${snapshot.tasksDeleted.length} tâches`,
+      reasoning: recalib.carryover_notes,
+      targetEntityType: "recalibration",
+      targetEntityId: recalibrationId,
+    });
+  } catch {
+    /* best-effort */
+  }
+
   return {
     recalibrationId,
     tasksAdded: insertedIds.length,

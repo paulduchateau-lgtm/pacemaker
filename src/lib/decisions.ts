@@ -97,6 +97,10 @@ export async function getDecisionById(
 export async function createDecision(
   missionId: string,
   input: CreateDecisionInput,
+  opts: {
+    triggeringMessageId?: string | null;
+    narrative?: string;
+  } = {},
 ): Promise<Decision> {
   if (!input.statement.trim()) throw new Error("statement obligatoire");
   const id = newDecisionId();
@@ -126,6 +130,26 @@ export async function createDecision(
   );
   const created = await getDecisionById(missionId, id);
   if (!created) throw new Error("Création décision échouée");
+
+  // Chantier 7 : trace dans le journal agent unifié (hybride).
+  try {
+    const { logAgentAction } = await import("./agent-actions");
+    await logAgentAction({
+      missionId,
+      actionType: "create_decision",
+      narrative:
+        opts.narrative ??
+        `Décision consignée : « ${input.statement.trim()} »`,
+      reasoning: input.rationale ?? null,
+      targetEntityType: "decision",
+      targetEntityId: id,
+      confidence: input.confidence ?? null,
+      sourceMessageId: opts.triggeringMessageId ?? null,
+    });
+  } catch {
+    /* journal est best-effort */
+  }
+
   return created;
 }
 
