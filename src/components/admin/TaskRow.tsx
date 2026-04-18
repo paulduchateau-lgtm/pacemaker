@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Task, TaskStatus } from "@/types";
 import Badge from "@/components/ui/Badge";
+import ConfidenceGauge from "@/components/ui/ConfidenceGauge";
 import { useStore } from "@/store";
 import TaskDetail from "./TaskDetail";
 
@@ -42,6 +43,12 @@ export default function TaskRow({ task }: { task: Task }) {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+          {task.confidence !== null && task.confidence !== undefined && (
+            <ConfidenceGauge
+              value={task.confidence}
+              reasoning={task.reasoning}
+            />
+          )}
           <Badge label={task.owner} />
           <Badge
             label={task.priority}

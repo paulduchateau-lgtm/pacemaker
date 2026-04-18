@@ -89,8 +89,23 @@ Génère 4 à 6 tâches concrètes et actionnables pour cette semaine.
 Les owners possibles sont : "Paul", "Paul B.", "Client".
 Les priorités possibles sont : "haute", "moyenne", "basse".
 
+Pour CHAQUE tâche, indique :
+- confidence : un nombre entre 0 et 1 reflétant ta confiance dans la pertinence
+  de cette tâche pour cette semaine (0.85+ = évidence claire, 0.6–0.85 =
+  inférence raisonnable, <0.6 = hypothèse fragile à valider).
+- reasoning : une phrase courte qui explique pourquoi cette tâche et pourquoi
+  maintenant. Mentionne l'alternative si tu en as écartée une.
+
 Réponds UNIQUEMENT avec un tableau JSON :
-[{"label": "...", "owner": "Paul|Paul B.|Client", "priority": "haute|moyenne|basse"}]`;
+[
+  {
+    "label": "...",
+    "owner": "Paul|Paul B.|Client",
+    "priority": "haute|moyenne|basse",
+    "confidence": 0.0-1.0,
+    "reasoning": "phrase courte"
+  }
+]`;
 }
 
 export function buildParseUploadPrompt(
@@ -116,6 +131,13 @@ envisagées. Si le compte-rendu ne les mentionne pas, laisse ces champs vides
 (null / []) — n'invente rien. Indique aussi qui l'a prise si c'est clair dans
 le CR ("paul", "paul_b", "client"), sinon "paul" par défaut.
 
+Pour chaque action et chaque risque, ajoute aussi :
+- confidence : 0..1 (ta certitude que l'item est pertinent)
+- reasoning : phrase courte pour justifier.
+
+Pour chaque décision, ajoute aussi confidence (0..1) si c'est toi qui
+l'infères depuis le CR.
+
 Réponds UNIQUEMENT avec du JSON :
 {
   "decisions": [
@@ -123,11 +145,12 @@ Réponds UNIQUEMENT avec du JSON :
       "statement": "énoncé court de la décision",
       "rationale": "motifs explicites (null si non mentionnés)",
       "alternatives": ["alternative 1", "..."],
-      "author": "paul|paul_b|client"
+      "author": "paul|paul_b|client",
+      "confidence": 0.0-1.0
     }
   ],
-  "actions": [{"label": "...", "owner": "...", "priority": "..."}],
-  "risks": [{"label": "...", "impact": 1, "probability": 1}],
+  "actions": [{"label": "...", "owner": "...", "priority": "...", "confidence": 0.0-1.0, "reasoning": "..."}],
+  "risks": [{"label": "...", "impact": 1, "probability": 1, "confidence": 0.0-1.0, "reasoning": "..."}],
   "opportunities": ["..."]
 }`;
 }

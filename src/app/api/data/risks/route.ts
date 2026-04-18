@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
     probability: r.probability,
     status: r.status,
     mitigation: r.mitigation,
+    confidence: (r.confidence as number | null) ?? null,
+    reasoning: (r.reasoning as string | null) ?? null,
   }));
   return NextResponse.json(risks);
 }
