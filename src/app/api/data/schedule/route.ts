@@ -128,6 +128,22 @@ export async function POST(req: NextRequest) {
         ],
       );
 
+      // Chantier 8 : une cascade (déplacement des semaines aval) économise
+      // le temps manuel de déplacer 6 semaines + livrables à la main.
+      if (cascade && shiftDays !== 0) {
+        try {
+          const { logTimeSaving } = await import("@/lib/time-savings");
+          await logTimeSaving({
+            missionId: mission.id,
+            activity: "schedule_cascade",
+            sourceEntityType: "schedule_change",
+            sourceEntityId: changeId,
+          });
+        } catch {
+          /* best-effort */
+        }
+      }
+
       return NextResponse.json({ ok: true, shiftDays });
     }
 

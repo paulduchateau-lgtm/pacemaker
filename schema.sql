@@ -380,6 +380,25 @@ CREATE INDEX IF NOT EXISTS idx_agent_actions_mission ON agent_actions(mission_id
 CREATE INDEX IF NOT EXISTS idx_agent_actions_target ON agent_actions(target_entity_type, target_entity_id);
 CREATE INDEX IF NOT EXISTS idx_agent_actions_source_msg ON agent_actions(source_message_id);
 
+-- =========================================================================
+-- Chantier 8 (indicateurs de temps libéré). Chaque ligne = une occurrence
+-- d'activité automatisée avec sa conversion minutes-consultant (médianes
+-- validées dans config/time-conversion.ts).
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS time_savings (
+  id TEXT PRIMARY KEY,
+  mission_id TEXT NOT NULL REFERENCES missions(id),
+  user_id TEXT NOT NULL DEFAULT 'paul',
+  activity_type TEXT NOT NULL,
+  estimated_minutes_saved INTEGER NOT NULL,
+  source_entity_type TEXT,
+  source_entity_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_time_savings_mission ON time_savings(mission_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_time_savings_activity ON time_savings(mission_id, activity_type);
+
 -- Index composites mission-first (chantier 1)
 CREATE INDEX IF NOT EXISTS idx_weeks_mission ON weeks(mission_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_mission_week ON tasks(mission_id, week_id);

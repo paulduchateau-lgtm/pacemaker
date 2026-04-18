@@ -352,6 +352,18 @@ export async function detectIncoherences(
       } catch {
         /* best-effort */
       }
+      // Chantier 8 : temps gagné.
+      try {
+        const { logTimeSaving } = await import("./time-savings");
+        await logTimeSaving({
+          missionId: params.missionId,
+          activity: "incoherence_flagged",
+          sourceEntityType: "incoherence",
+          sourceEntityId: id,
+        });
+      } catch {
+        /* best-effort */
+      }
     }
   }
 

@@ -48,6 +48,19 @@ export async function POST(req: NextRequest) {
       missionId: mission.id,
     });
 
+    // Chantier 8 : temps gagné par extraction photo.
+    try {
+      const { logTimeSaving } = await import("@/lib/time-savings");
+      await logTimeSaving({
+        missionId: mission.id,
+        activity: "vision_extract",
+        sourceEntityType: "generation",
+        sourceEntityId: generationId,
+      });
+    } catch {
+      /* best-effort */
+    }
+
     return NextResponse.json({
       blobUrl,
       extraction,

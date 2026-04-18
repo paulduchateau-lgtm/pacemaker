@@ -247,6 +247,17 @@ export async function generateBriefing(params: {
     [JSON.stringify(briefing), mission.id, userId],
   );
 
+  // Chantier 8 : trace le temps gagné quand un briefing est consulté.
+  try {
+    const { logTimeSaving } = await import("./time-savings");
+    await logTimeSaving({
+      missionId: mission.id,
+      activity: "briefing_consulted",
+    });
+  } catch {
+    /* best-effort */
+  }
+
   return briefing;
 }
 

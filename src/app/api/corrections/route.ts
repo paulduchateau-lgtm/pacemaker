@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     // la correction porte bien sur la mission courante.
     const mission = await resolveActiveMission(req);
     const genRows = await query(
-      "SELECT mission_id FROM generations WHERE id = ?",
+      "SELECT mission_id, generation_type FROM generations WHERE id = ?",
       [generationId],
     );
     if (
@@ -34,6 +34,22 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await processCorrection(generationId, correctedOutput);
+    // Chantier 8 : une correction sur génération 'livrables' paie sur le
+    // long terme via la règle apprise — on logue livrable_correction.
+    try {
+      const genRow = genRows[0];
+      if (genRow && String(genRow.generation_type ?? "") === "livrables") {
+        const { logTimeSaving } = await import("@/lib/time-savings");
+        await logTimeSaving({
+          missionId: mission.id,
+          activity: "livrable_correction",
+          sourceEntityType: "correction",
+          sourceEntityId: result.id,
+        });
+      }
+    } catch {
+      /* best-effort */
+    }
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";
