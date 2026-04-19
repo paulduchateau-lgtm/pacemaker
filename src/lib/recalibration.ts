@@ -167,6 +167,14 @@ export interface Snapshot {
     complexite: string;
     lot: number;
   }>;
+  weeksBefore: Array<{
+    id: number;
+    title: string;
+    phase: string;
+    budget_jh: number;
+    actions: string;
+    livrables_plan: string;
+  }>;
 }
 
 /**
@@ -255,6 +263,31 @@ export async function snapshotForRecalibration(
       complexite: String(r.complexite),
       lot: Number(r.lot),
     })),
+    weeksBefore: await (async () => {
+      // Toujours snapshoter le descriptif des semaines dans le scope — le
+      // LLM peut les renommer/restructurer via week_changes (chantier refonte).
+      const weekCondition =
+        params.scope === "full_plan"
+          ? ""
+          : params.scope === "single_week"
+            ? "AND id = ?"
+            : "AND id >= ?";
+      const wargs: (string | number)[] = [params.missionId];
+      if (params.scope !== "full_plan") wargs.push(params.fromWeekId);
+      const weekRows = await query(
+        `SELECT id, title, phase, budget_jh, actions, livrables_plan
+         FROM weeks WHERE mission_id = ? ${weekCondition}`,
+        wargs,
+      );
+      return weekRows.map((r) => ({
+        id: Number(r.id),
+        title: String(r.title),
+        phase: String(r.phase),
+        budget_jh: Number(r.budget_jh),
+        actions: String(r.actions),
+        livrables_plan: String(r.livrables_plan),
+      }));
+    })(),
   };
 }
 
@@ -316,8 +349,18 @@ interface RapportChange {
   new_etat?: string;
   reason?: string;
 }
+interface WeekChange {
+  id: number;
+  new_title?: string;
+  new_phase?: string;
+  new_budget_jh?: number;
+  new_actions?: string[];
+  new_livrables_plan?: string[];
+  reason?: string;
+}
 interface RecalibResult {
   weeks: Record<string, { label: string; owner: string; priority: string; confidence?: number; reasoning?: string }[]>;
+  week_changes?: WeekChange[];
   livrable_changes?: LivrableChange[];
   rapport_changes?: RapportChange[];
   carryover_notes: string;
@@ -610,6 +653,46 @@ export async function performRecalibration(
     }
   }
 
+  // Chantier refonte : modifier le descriptif d'une semaine (title / phase /
+  // budget / actions / livrables_plan) si une décision rend caduque sa
+  // définition initiale. Ex: S4 devient "AST — Conception" après une
+  // décision "focus AST S1-S5".
+  const weekChangesApplied: number[] = [];
+  if (Array.isArray(recalib.week_changes)) {
+    for (const c of recalib.week_changes) {
+      if (typeof c?.id !== "number") continue;
+      const sets: string[] = [];
+      const args: unknown[] = [];
+      if (typeof c.new_title === "string" && c.new_title.trim()) {
+        sets.push("title = ?");
+        args.push(c.new_title.trim());
+      }
+      if (typeof c.new_phase === "string" && c.new_phase.trim()) {
+        sets.push("phase = ?");
+        args.push(c.new_phase.trim());
+      }
+      if (typeof c.new_budget_jh === "number") {
+        sets.push("budget_jh = ?");
+        args.push(c.new_budget_jh);
+      }
+      if (Array.isArray(c.new_actions)) {
+        sets.push("actions = ?");
+        args.push(JSON.stringify(c.new_actions));
+      }
+      if (Array.isArray(c.new_livrables_plan)) {
+        sets.push("livrables_plan = ?");
+        args.push(JSON.stringify(c.new_livrables_plan));
+      }
+      if (sets.length === 0) continue;
+      args.push(c.id, missionId);
+      await execute(
+        `UPDATE weeks SET ${sets.join(", ")} WHERE id = ? AND mission_id = ?`,
+        args as import("@libsql/client").InValue[],
+      );
+      weekChangesApplied.push(c.id);
+    }
+  }
+
   // Persist recalibration row
   const recalibrationId = await persistRecalibration({
     missionId,
@@ -737,7 +820,7 @@ export async function revertRecalibration(
   missionId: string,
   id: string,
   revertedBy: string = "paul",
-): Promise<{ restored: number; removed: number; livrablesRestored: number; rapportsRestored: number }> {
+): Promise<{ restored: number; removed: number; livrablesRestored: number; rapportsRestored: number; weeksRestored: number }> {
   const recalib = await getRecalibration(missionId, id);
   if (!recalib) throw new Error("Recalibration introuvable");
   if (recalib.revertedAt) throw new Error("Recalibration déjà revertée");
@@ -819,6 +902,20 @@ export async function revertRecalibration(
     }
   }
 
+  // 5) Restaurer le descriptif des semaines (chantier refonte)
+  let weeksRestored = 0;
+  if (snap?.weeksBefore?.length) {
+    for (const w of snap.weeksBefore) {
+      await execute(
+        `UPDATE weeks
+           SET title = ?, phase = ?, budget_jh = ?, actions = ?, livrables_plan = ?
+         WHERE id = ? AND mission_id = ?`,
+        [w.title, w.phase, w.budget_jh, w.actions, w.livrables_plan, w.id, missionId],
+      );
+      weeksRestored++;
+    }
+  }
+
   await execute(
     `UPDATE recalibrations
        SET reverted_at = datetime('now'), reverted_by = ?
@@ -826,5 +923,5 @@ export async function revertRecalibration(
     [revertedBy, id, missionId],
   );
 
-  return { restored, removed, livrablesRestored, rapportsRestored };
+  return { restored, removed, livrablesRestored, rapportsRestored, weeksRestored };
 }

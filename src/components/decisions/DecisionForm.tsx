@@ -172,8 +172,19 @@ export default function DecisionForm({ missionSlug }: { missionSlug: string }) {
           opacity: submitting || !statement.trim() ? 0.5 : 1,
         }}
       >
-        {submitting ? "ENREGISTREMENT..." : "ACTER LA DÉCISION"}
+        {submitting
+          ? "RECALIBRATION EN COURS (20-30s)..."
+          : "ACTER LA DÉCISION"}
       </button>
+      {submitting && (
+        <p
+          className="mono-label"
+          style={{ color: "var(--color-muted)" }}
+        >
+          La décision est enregistrée puis le plan complet est repensé en tenant
+          compte de ce nouvel arbitrage. Ne ferme pas cette page.
+        </p>
+      )}
     </form>
   );
 }

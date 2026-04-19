@@ -167,18 +167,35 @@ export async function createDecision(
   }
 
   // Refonte recalib : une décision peut rétroactivement invalider le plan.
-  // On déclenche une recalibration complète automatiquement (debounce 30s
-  // protège contre les cascades quand un CR crée 3 décisions d'affilée).
+  // On déclenche une recalibration complète SYNCHRONEMENT (await) — sur
+  // Vercel serverless, tout fire-and-forget est tué dès que la route
+  // retourne. L'utilisateur voit un spinner 20-30s, mais la recalib est
+  // fiable. try/catch : si la recalib échoue, la décision reste créée.
   try {
-    const { kickOffAutoRecalibration } = await import("./recalibration");
-    await kickOffAutoRecalibration({
+    const { performRecalibration } = await import("./recalibration");
+    let currentWeek = 1;
+    try {
+      const rows = await query(
+        "SELECT value FROM project WHERE key = 'current_week'",
+      );
+      if (rows[0]?.value) {
+        const n = parseInt(String(rows[0].value), 10);
+        if (Number.isFinite(n) && n > 0) currentWeek = n;
+      }
+    } catch {
+      /* fallback week 1 */
+    }
+    await performRecalibration({
       missionId,
+      currentWeek,
       scope: "full_plan",
       trigger: "auto_on_input",
       triggerRef: id,
     });
-  } catch {
-    /* best-effort */
+  } catch (err) {
+    // Silent — la décision est persistée, l'utilisateur peut relancer
+    // manuellement si la recalib a échoué.
+    console.warn("[createDecision] recalib auto échouée:", err);
   }
 
   return created;
