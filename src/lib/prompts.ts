@@ -258,11 +258,28 @@ Les priorités possibles sont : "haute", "moyenne", "basse".
 Les statuts de livrable : "planifié" | "en cours" | "livré" | "validé" | "annulé".
 Les états de rapport : "à faire" | "en cours" | "livré" | "annulé".
 
+Tu peux aussi modifier le **descriptif** d'une semaine (titre, phase, budget,
+actions prévues, livrables prévus) si une décision rend caduque la définition
+initiale. Exemple : S4 s'appelle "Rapports R2 & R3" mais la décision "focus
+AST S1-S5" réaffecte R2/R3 vers une autre phase — le titre et le plan des
+livrables de S4 doivent changer en conséquence.
+
 Réponds UNIQUEMENT avec du JSON (strict, sans backticks) :
 {
   "weeks": {
     "1": [{"label": "...", "owner": "...", "priority": "...", "confidence": 0.7, "reasoning": "..."}]
   },
+  "week_changes": [
+    {
+      "id": 4,
+      "new_title": "AST — Conception d'architecture",
+      "new_phase": "Construction socle",
+      "new_budget_jh": 5,
+      "new_actions": ["Atelier AST 1", "Cadrage SI cible"],
+      "new_livrables_plan": ["Note de cadrage AST validée"],
+      "reason": "Décision focus AST S1-S5 → S4 devient phase AST, R2/R3 déplacés"
+    }
+  ],
   "livrable_changes": [
     {"id": "livrable-xxx", "new_week_id": 3, "new_status": "planifié", "reason": "décision focus AST"}
   ],
@@ -272,9 +289,11 @@ Réponds UNIQUEMENT avec du JSON (strict, sans backticks) :
   "carryover_notes": "Explication synthétique : ce qui bouge, ce qui est préservé, pourquoi."
 }
 
-Tous les champs de livrable_changes / rapport_changes sont optionnels sauf "id"
-(ne mets que ce qui CHANGE). new_week_id peut être null pour désaffecter.
-Les "weeks" doivent couvrir UNIQUEMENT les semaines que tu modifies dans ton scope.`;
+Tous les champs de *_changes sont optionnels sauf "id" (ne mets que ce qui
+CHANGE). new_week_id peut être null pour désaffecter un livrable/rapport.
+Les "weeks" doivent couvrir UNIQUEMENT les semaines que tu modifies dans ton
+scope. Pour une semaine dont tu changes le descriptif (week_changes), pense
+aussi à régénérer ses tasks dans "weeks" — la table tasks a été vidée.`;
 }
 
 interface CreateLivrableContext {

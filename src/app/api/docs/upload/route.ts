@@ -124,17 +124,30 @@ export async function POST(req: NextRequest) {
     const r = rows[0];
 
     // Refonte recalib : un nouveau doc (CR, spec, note) peut changer le plan.
-    // On déclenche une recalibration downstream async (debounce 30s).
+    // Await synchrone (sur Vercel serverless, le fire-and-forget est tué).
     try {
-      const { kickOffAutoRecalibration } = await import("@/lib/recalibration");
-      await kickOffAutoRecalibration({
+      const { performRecalibration } = await import("@/lib/recalibration");
+      let currentWeek = 1;
+      try {
+        const rows = await query(
+          "SELECT value FROM project WHERE key = 'current_week'",
+        );
+        if (rows[0]?.value) {
+          const n = parseInt(String(rows[0].value), 10);
+          if (Number.isFinite(n) && n > 0) currentWeek = n;
+        }
+      } catch {
+        /* fallback */
+      }
+      await performRecalibration({
         missionId: mission.id,
+        currentWeek,
         scope: "downstream_only",
         trigger: "auto_on_input",
         triggerRef: id,
       });
-    } catch {
-      /* best-effort */
+    } catch (err) {
+      console.warn("[docs/upload] recalib auto échouée:", err);
     }
 
     return NextResponse.json({
