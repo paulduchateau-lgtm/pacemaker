@@ -395,10 +395,16 @@ export async function performRecalibration(
   recalibrationId: string;
   tasksAdded: number;
   tasksRemoved: number;
+  livrablesChanged: number;
+  rapportsChanged: number;
   carryoverNotes: string;
   generationId: string;
 }> {
   const { missionId, currentWeek, scope, trigger, triggerRef } = params;
+  const tStart = Date.now();
+  console.log(
+    `[recalib] START mission=${missionId} currentWeek=${currentWeek} scope=${scope} trigger=${trigger} triggerRef=${triggerRef ?? "—"}`,
+  );
 
   // Chargement du contexte mission
   const weekRows = await query(
@@ -522,8 +528,25 @@ export async function performRecalibration(
     missionContext,
   );
 
+  console.log(
+    `[recalib] CONTEXT decisions=${decisions.length} livrables=${livrables.length} rapports=${rapports.length} tasks=${tasks.length} risks=${risks.length} events=${events.length} rules=${rules.length} missionCtx=${missionContext.length}c ragCtx=${ragContext.length}c`,
+  );
+  if (decisions.length > 0) {
+    console.log(
+      "[recalib] DECISIONS injected:",
+      decisions
+        .map((d) => `[${d.id}] S${d.weekId ?? "?"} ${d.statement.slice(0, 60)}`)
+        .join(" | "),
+    );
+  }
+  console.log(`[recalib] PROMPT head (500c): ${prompt.slice(0, 500)}`);
+
   // Appel LLM avec télémétrie
   const { text: result, usage, model } = await callLLMWithUsage(prompt, 4000);
+  console.log(
+    `[recalib] LLM done in=${usage.inputTokens}tk out=${usage.outputTokens}tk model=${model} t=${Date.now() - tStart}ms`,
+  );
+  console.log(`[recalib] OUTPUT head (500c): ${result.slice(0, 500)}`);
 
   const generationId = await trackGeneration({
     generationType: "recalib",
@@ -749,13 +772,19 @@ export async function performRecalibration(
     /* best-effort */
   }
 
-  return {
+  const outcome = {
     recalibrationId,
     tasksAdded: insertedIds.length,
     tasksRemoved: snapshot.tasksDeleted.length,
+    livrablesChanged: livrableChangesApplied.length,
+    rapportsChanged: rapportChangesApplied.length,
     carryoverNotes: recalib.carryover_notes,
     generationId,
   };
+  console.log(
+    `[recalib] END tasks=+${outcome.tasksAdded}/-${outcome.tasksRemoved} livrables_changed=${outcome.livrablesChanged} rapports_changed=${outcome.rapportsChanged} weeks_changed=${weekChangesApplied.length} totalMs=${Date.now() - tStart}`,
+  );
+  return outcome;
 }
 
 // ── Auto-trigger avec debounce par mission ────────────────────────────────
@@ -764,21 +793,33 @@ const AUTO_DEBOUNCE_MS = 30_000;
 const lastAutoTrigger = new Map<string, number>();
 
 /**
- * Déclenche une recalibration automatique en arrière-plan si aucune n'a
- * tourné dans les 30 dernières secondes pour cette mission. Évite les
- * cascades quand plusieurs événements arrivent d'un coup (ex: parse d'un
- * CR qui crée 3 décisions → 1 seule recalibration en sortie).
+ * Déclenche une recalibration automatique.
+ *
+ * Par défaut, fire-and-forget avec debounce 30s par mission (évite les
+ * cascades quand plusieurs événements arrivent d'un coup).
+ *
+ * Si `wait=true`, la recalibration est exécutée EN SYNCHRONE (bypass
+ * debounce) et l'appelant attend le résultat. À utiliser quand l'UX
+ * consommateur veut voir le plan mis à jour en fin de requête (ex: POST
+ * /api/decisions + form qui affiche "RECALIBRATION EN COURS (20-30s)").
  */
 export async function kickOffAutoRecalibration(params: {
   missionId: string;
   scope: RecalibScope;
   trigger: Exclude<RecalibTrigger, "manual">;
   triggerRef?: string | null;
-}): Promise<void> {
-  const now = Date.now();
-  const last = lastAutoTrigger.get(params.missionId) ?? 0;
-  if (now - last < AUTO_DEBOUNCE_MS) return;
-  lastAutoTrigger.set(params.missionId, now);
+  wait?: boolean;
+}): Promise<{ ran: boolean; recalibrationId?: string }> {
+  if (!params.wait) {
+    const now = Date.now();
+    const last = lastAutoTrigger.get(params.missionId) ?? 0;
+    if (now - last < AUTO_DEBOUNCE_MS) return { ran: false };
+    lastAutoTrigger.set(params.missionId, now);
+  } else {
+    // En mode synchrone, on marque quand même le timestamp pour que les
+    // triggers async qui suivent ne doublonnent pas.
+    lastAutoTrigger.set(params.missionId, Date.now());
+  }
 
   // Récupère currentWeek depuis project k/v (fallback 1).
   let currentWeek = 1;
@@ -794,6 +835,22 @@ export async function kickOffAutoRecalibration(params: {
     /* ignore */
   }
 
+  if (params.wait) {
+    try {
+      const result = await performRecalibration({
+        missionId: params.missionId,
+        currentWeek,
+        scope: params.scope,
+        trigger: params.trigger,
+        triggerRef: params.triggerRef ?? null,
+      });
+      return { ran: true, recalibrationId: result.recalibrationId };
+    } catch (err) {
+      console.error("[kickOffAutoRecalibration sync] failed:", err);
+      return { ran: false };
+    }
+  }
+
   const run = async () => {
     try {
       await performRecalibration({
@@ -803,8 +860,8 @@ export async function kickOffAutoRecalibration(params: {
         trigger: params.trigger,
         triggerRef: params.triggerRef ?? null,
       });
-    } catch {
-      // Silencieux. L'utilisateur peut toujours relancer manuellement.
+    } catch (err) {
+      console.error("[kickOffAutoRecalibration async] failed:", err);
     }
   };
 
@@ -814,6 +871,7 @@ export async function kickOffAutoRecalibration(params: {
   } else {
     run();
   }
+  return { ran: true };
 }
 
 export async function revertRecalibration(

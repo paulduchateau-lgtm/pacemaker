@@ -100,6 +100,8 @@ export async function createDecision(
   opts: {
     triggeringMessageId?: string | null;
     narrative?: string;
+    /** Si true, n'invoque PAS kickOffAutoRecalibration (le caller s'en occupe). */
+    skipAutoRecalibration?: boolean;
   } = {},
 ): Promise<Decision> {
   if (!input.statement.trim()) throw new Error("statement obligatoire");
@@ -167,35 +169,39 @@ export async function createDecision(
   }
 
   // Refonte recalib : une décision peut rétroactivement invalider le plan.
-  // On déclenche une recalibration complète SYNCHRONEMENT (await) — sur
-  // Vercel serverless, tout fire-and-forget est tué dès que la route
-  // retourne. L'utilisateur voit un spinner 20-30s, mais la recalib est
-  // fiable. try/catch : si la recalib échoue, la décision reste créée.
-  try {
-    const { performRecalibration } = await import("./recalibration");
-    let currentWeek = 1;
+  // Par défaut ON DÉCLENCHE UNE RECALIBRATION SYNCHRONE (await) — sur
+  // Vercel serverless, tout fire-and-forget meurt dès que la route
+  // retourne, donc l'async n'est pas fiable en prod. L'UI affiche un
+  // spinner 20-30s et rafraîchit la page quand c'est terminé.
+  //
+  // Si `skipAutoRecalibration=true`, le caller prend la main (cas du POST
+  // /api/decisions qui veut contrôler lui-même le timing et reporter
+  // l'ID recalib au client).
+  if (!opts.skipAutoRecalibration) {
     try {
-      const rows = await query(
-        "SELECT value FROM project WHERE key = 'current_week'",
-      );
-      if (rows[0]?.value) {
-        const n = parseInt(String(rows[0].value), 10);
-        if (Number.isFinite(n) && n > 0) currentWeek = n;
+      const { performRecalibration } = await import("./recalibration");
+      let currentWeek = 1;
+      try {
+        const rows = await query(
+          "SELECT value FROM project WHERE key = 'current_week'",
+        );
+        if (rows[0]?.value) {
+          const n = parseInt(String(rows[0].value), 10);
+          if (Number.isFinite(n) && n > 0) currentWeek = n;
+        }
+      } catch {
+        /* fallback week 1 */
       }
-    } catch {
-      /* fallback week 1 */
+      await performRecalibration({
+        missionId,
+        currentWeek,
+        scope: "full_plan",
+        trigger: "auto_on_input",
+        triggerRef: id,
+      });
+    } catch (err) {
+      console.warn("[createDecision] recalib auto échouée:", err);
     }
-    await performRecalibration({
-      missionId,
-      currentWeek,
-      scope: "full_plan",
-      trigger: "auto_on_input",
-      triggerRef: id,
-    });
-  } catch (err) {
-    // Silent — la décision est persistée, l'utilisateur peut relancer
-    // manuellement si la recalib a échoué.
-    console.warn("[createDecision] recalib auto échouée:", err);
   }
 
   return created;

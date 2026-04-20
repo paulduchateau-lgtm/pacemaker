@@ -6,6 +6,8 @@ import { put } from "@vercel/blob";
 import { resolveActiveMission } from "@/lib/mission";
 
 export const dynamic = "force-dynamic";
+// Upload + parse + indexation RAG + trigger recalib éventuel = long.
+export const maxDuration = 60;
 
 const ALLOWED_TYPES = [
   "application/pdf",

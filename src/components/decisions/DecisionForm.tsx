@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { DecisionAuthor } from "@/types";
 
@@ -11,7 +10,6 @@ const AUTHORS: { value: DecisionAuthor; label: string }[] = [
 ];
 
 export default function DecisionForm({ missionSlug }: { missionSlug: string }) {
-  const router = useRouter();
   const [statement, setStatement] = useState("");
   const [rationale, setRationale] = useState("");
   const [alternatives, setAlternatives] = useState("");
@@ -49,7 +47,11 @@ export default function DecisionForm({ missionSlug }: { missionSlug: string }) {
       setRationale("");
       setAlternatives("");
       setWeekId("");
-      router.refresh();
+      // router.refresh() ne re-run pas les useEffect des composants client
+      // qui peuplent le store Zustand. window.location.reload() est le seul
+      // moyen de garantir que le backlog, les livrables et les rapports
+      // affichent le plan recalibré.
+      window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {

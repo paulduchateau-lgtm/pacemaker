@@ -6,6 +6,8 @@ import {
 } from "@/lib/recalibration";
 
 export const dynamic = "force-dynamic";
+// Recalibration = 1 appel LLM long (jusqu'à 4000 tk de sortie). 60s de marge.
+export const maxDuration = 60;
 
 const SCOPES: RecalibScope[] = ["full_plan", "downstream_only", "single_week"];
 

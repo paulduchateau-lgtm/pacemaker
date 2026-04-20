@@ -6,6 +6,9 @@ import { resolveActiveMission } from "@/lib/mission";
 import { kickOffDetection } from "@/lib/incoherences";
 
 export const dynamic = "force-dynamic";
+// parse-upload fait 1 appel LLM (parse CR) puis déclenche des détections et
+// potentiellement une recalib en arrière-plan. On prend 60s de marge.
+export const maxDuration = 60;
 
 interface RichDecision {
   statement: string;
@@ -134,16 +137,23 @@ export async function POST(req: NextRequest) {
         [eventId, d.statement, weekId, d.rationale ?? d.statement, mission.id],
       );
       try {
-        await createDecision(mission.id, {
-          statement: d.statement,
-          rationale: d.rationale ?? null,
-          alternatives: d.alternatives?.length ? d.alternatives : null,
-          author: d.author ?? "paul",
-          status: "actée",
-          sourceType: "parse_cr",
-          sourceRef: eventId,
-          weekId,
-        });
+        // skipAutoRecalibration : le CR peut contenir 3+ décisions, on ne
+        // veut pas 3 recalibrations successives. On fait UNE recalibration
+        // à la fin de parse-upload.
+        await createDecision(
+          mission.id,
+          {
+            statement: d.statement,
+            rationale: d.rationale ?? null,
+            alternatives: d.alternatives?.length ? d.alternatives : null,
+            author: d.author ?? "paul",
+            status: "actée",
+            sourceType: "parse_cr",
+            sourceRef: eventId,
+            weekId,
+          },
+          { skipAutoRecalibration: true },
+        );
       } catch {
         // si createDecision échoue (DB inconsistante, etc.) on garde au moins
         // l'event pour ne rien perdre — le chantier 02 peut être rejoué.
@@ -196,6 +206,27 @@ export async function POST(req: NextRequest) {
       });
     } catch {
       /* best-effort */
+    }
+
+    // Une seule recalibration synchrone à la fin pour absorber le CR
+    // (plutôt qu'une par décision). Permet au client d'afficher le plan
+    // à jour dès que la réponse revient. Fire-and-forget meurt sur
+    // Vercel serverless, d'où l'await.
+    if (parsed.decisions.length > 0 || parsed.actions.length > 0) {
+      try {
+        const { kickOffAutoRecalibration } = await import(
+          "@/lib/recalibration"
+        );
+        await kickOffAutoRecalibration({
+          missionId: mission.id,
+          scope: "full_plan",
+          trigger: "auto_on_input",
+          triggerRef: docId,
+          wait: true,
+        });
+      } catch (err) {
+        console.warn("[parse-upload] recalib post-CR échouée:", err);
+      }
     }
 
     return NextResponse.json({
