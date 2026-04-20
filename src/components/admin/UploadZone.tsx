@@ -2,20 +2,16 @@
 
 import { useState } from "react";
 import Button from "@/components/ui/Button";
-import { useStore } from "@/store";
 
 export default function UploadZone({ weekId }: { weekId: number }) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-  const fetchTasks = useStore((s) => s.fetchTasks);
-  const fetchRisks = useStore((s) => s.fetchRisks);
-  const fetchEvents = useStore((s) => s.fetchEvents);
+  const [error, setError] = useState<string | null>(null);
 
   const handleUpload = async () => {
     if (!text.trim()) return;
     setLoading(true);
-    setResult(null);
+    setError(null);
     try {
       const res = await fetch("/api/llm/parse-upload", {
         method: "POST",
@@ -24,22 +20,25 @@ export default function UploadZone({ weekId }: { weekId: number }) {
       });
       const data = await res.json();
       if (data.error) {
-        setResult(`Erreur : ${data.error}`);
-      } else {
-        setResult(
-          `${data.actions} actions, ${data.decisions} décisions, ${data.risks} risques, ${data.opportunities} opportunités`
-        );
-        setText("");
-        await Promise.all([fetchTasks(), fetchRisks(), fetchEvents()]);
+        setError(`Erreur : ${data.error}`);
+        setLoading(false);
+        return;
       }
+      // parse-upload déclenche une recalibration synchrone en fin de route.
+      // On recharge la page pour voir les nouvelles tâches / livrables /
+      // rapports (le store Zustand ne re-fetch pas tout seul).
+      window.location.reload();
     } catch {
-      setResult("Erreur réseau");
+      setError("Erreur réseau");
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div className="px-3 py-2 border-t" style={{ borderColor: "var(--color-border)" }}>
+    <div
+      className="px-3 py-2 border-t"
+      style={{ borderColor: "var(--color-border)" }}
+    >
       <details>
         <summary
           className="mono-label cursor-pointer"
@@ -59,13 +58,27 @@ export default function UploadZone({ weekId }: { weekId: number }) {
               color: "var(--color-ink)",
             }}
           />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button onClick={handleUpload} disabled={!text.trim() || loading}>
-              {loading ? "⧳ ANALYSE..." : "▶ ANALYSER"}
+              {loading
+                ? "⧳ ANALYSE + RECALIBRATION (20-30s)..."
+                : "▶ ANALYSER"}
             </Button>
-            {result && (
-              <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                {result}
+            {loading && (
+              <span
+                className="mono-label"
+                style={{ color: "var(--color-muted)" }}
+              >
+                Extraction puis recalibration du plan — la page se rafraîchit
+                à la fin.
+              </span>
+            )}
+            {error && (
+              <span
+                className="text-xs"
+                style={{ color: "var(--color-alert)" }}
+              >
+                {error}
               </span>
             )}
           </div>
