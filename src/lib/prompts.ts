@@ -59,41 +59,19 @@ Réponds UNIQUEMENT avec du JSON :
 }`;
 }
 
-export function buildGenerateTasksPrompt(
-  week: Week,
-  existingTasks: Task[],
-  prevWeekTasks: Task[],
-  ragContext: string = "",
-  rules: Rule[] = [],
-  missionContext: string = ""
-): string {
-  const blocked = prevWeekTasks.filter((t) => t.status === "bloqué");
-  const notDone = prevWeekTasks.filter(
-    (t) => t.status !== "fait" && t.status !== "bloqué"
-  );
+function buildGenerateTasksSystem(missionContext: string): string {
+  return `Tu es un assistant de pilotage de mission de consulting.
 
-  return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un assistant de pilotage de mission de consulting.
-${ragContext}
-Semaine ${week.id} — "${week.title}" (phase ${week.phase})
-Budget : ${week.budget_jh} jh
-Actions prévues : ${week.actions.join(", ")}
-Livrables attendus : ${week.livrables.join(", ")}
-Responsable : ${week.owner}
+${buildMissionBlock(missionContext)}Tu génères une liste de tâches concrètes pour une semaine de mission.
 
-Tâches déjà créées : ${existingTasks.length > 0 ? existingTasks.map((t) => t.label).join(", ") : "aucune"}
+CONSIGNES :
+- Génère 4 à 6 tâches concrètes et actionnables par semaine.
+- owners autorisés : "Paul", "Paul B.", "Client"
+- priorités : "haute", "moyenne", "basse"
 
-${blocked.length > 0 ? `Tâches bloquées semaine précédente : ${blocked.map((t) => t.label).join(", ")}` : ""}
-${notDone.length > 0 ? `Tâches non terminées semaine précédente : ${notDone.map((t) => t.label).join(", ")}` : ""}
-
-Génère 4 à 6 tâches concrètes et actionnables pour cette semaine.
-Les owners possibles sont : "Paul", "Paul B.", "Client".
-Les priorités possibles sont : "haute", "moyenne", "basse".
-
-Pour CHAQUE tâche, indique :
-- confidence : un nombre entre 0 et 1 reflétant ta confiance dans la pertinence
-  de cette tâche pour cette semaine (0.85+ = évidence claire, 0.6–0.85 =
-  inférence raisonnable, <0.6 = hypothèse fragile à valider).
-- reasoning : une phrase courte qui explique pourquoi cette tâche et pourquoi
+Pour CHAQUE tâche :
+- confidence : 0..1 (0.85+ = évidence claire, 0.6–0.85 = inférence raisonnable, <0.6 = hypothèse fragile)
+- reasoning : phrase courte qui explique pourquoi cette tâche et pourquoi
   maintenant. Mentionne l'alternative si tu en as écartée une.
 
 Réponds UNIQUEMENT avec un tableau JSON :
@@ -108,35 +86,52 @@ Réponds UNIQUEMENT avec un tableau JSON :
 ]`;
 }
 
-export function buildParseUploadPrompt(
-  uploadText: string,
-  weekId: number,
+export function buildGenerateTasksPrompt(
+  week: Week,
+  existingTasks: Task[],
+  prevWeekTasks: Task[],
   ragContext: string = "",
   rules: Rule[] = [],
   missionContext: string = ""
-): string {
-  return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un assistant de pilotage de mission de consulting.
-${ragContext}
-Voici un compte-rendu de réunion pour la semaine ${weekId} :
+): { system: string; user: string } {
+  const blocked = prevWeekTasks.filter((t) => t.status === "bloqué");
+  const notDone = prevWeekTasks.filter(
+    (t) => t.status !== "fait" && t.status !== "bloqué"
+  );
 
----
-${uploadText}
----
+  const user = `${buildRulesBlock(rules)}${ragContext}
+Semaine ${week.id} — "${week.title}" (phase ${week.phase})
+Budget : ${week.budget_jh} jh
+Actions prévues : ${week.actions.join(", ")}
+Livrables attendus : ${week.livrables.join(", ")}
+Responsable : ${week.owner}
 
-Extrais les éléments structurés suivants du compte-rendu.
-Les owners possibles pour les actions sont : "Paul", "Paul B.", "Client".
-Les priorités possibles sont : "haute", "moyenne", "basse".
-Pour chaque décision, essaie d'extraire ses motifs explicites et les alternatives
-envisagées. Si le compte-rendu ne les mentionne pas, laisse ces champs vides
-(null / []) — n'invente rien. Indique aussi qui l'a prise si c'est clair dans
-le CR ("paul", "paul_b", "client"), sinon "paul" par défaut.
+Tâches déjà créées : ${existingTasks.length > 0 ? existingTasks.map((t) => t.label).join(", ") : "aucune"}
 
-Pour chaque action et chaque risque, ajoute aussi :
-- confidence : 0..1 (ta certitude que l'item est pertinent)
-- reasoning : phrase courte pour justifier.
+${blocked.length > 0 ? `Tâches bloquées semaine précédente : ${blocked.map((t) => t.label).join(", ")}` : ""}
+${notDone.length > 0 ? `Tâches non terminées semaine précédente : ${notDone.map((t) => t.label).join(", ")}` : ""}
 
-Pour chaque décision, ajoute aussi confidence (0..1) si c'est toi qui
-l'infères depuis le CR.
+Génère les tâches selon le format JSON défini.`;
+
+  return { system: buildGenerateTasksSystem(missionContext), user };
+}
+
+function buildParseUploadSystem(missionContext: string): string {
+  return `Tu es un assistant de pilotage de mission de consulting.
+
+${buildMissionBlock(missionContext)}Tu parses un compte-rendu de réunion pour en extraire les éléments structurés.
+
+CONSIGNES :
+- owners autorisés pour actions : "Paul", "Paul B.", "Client"
+- priorités : "haute", "moyenne", "basse"
+- auteurs de décision : "paul", "paul_b", "client" (default "paul" si pas clair)
+- Pour chaque décision, essaie d'extraire ses motifs explicites et les
+  alternatives envisagées. Si le CR ne les mentionne pas, laisse ces champs
+  vides (null / []) — n'invente rien.
+- Pour chaque action et chaque risque, ajoute confidence (0..1) + reasoning
+  (phrase courte).
+- Pour chaque décision, ajoute confidence (0..1) si c'est toi qui l'infères
+  depuis le CR.
 
 Réponds UNIQUEMENT avec du JSON :
 {
@@ -153,6 +148,25 @@ Réponds UNIQUEMENT avec du JSON :
   "risks": [{"label": "...", "impact": 1, "probability": 1, "confidence": 0.0-1.0, "reasoning": "..."}],
   "opportunities": ["..."]
 }`;
+}
+
+export function buildParseUploadPrompt(
+  uploadText: string,
+  weekId: number,
+  ragContext: string = "",
+  rules: Rule[] = [],
+  missionContext: string = ""
+): { system: string; user: string } {
+  const user = `${buildRulesBlock(rules)}${ragContext}
+Voici un compte-rendu de réunion pour la semaine ${weekId} :
+
+---
+${uploadText}
+---
+
+Extrais les éléments structurés selon le schéma JSON défini.`;
+
+  return { system: buildParseUploadSystem(missionContext), user };
 }
 
 export interface RecalibDecision {
@@ -179,16 +193,6 @@ export interface RecalibRapport {
   complexite: string;
 }
 
-export interface RecalibDocument {
-  id: string;
-  title: string;
-  type: string;
-  source: string;
-  weekId: number | null;
-  createdAt: string;
-  snippet: string;
-}
-
 interface RecalibrationState {
   currentWeek: number;
   weeks: Week[];
@@ -198,109 +202,59 @@ interface RecalibrationState {
   decisions: RecalibDecision[];
   livrables: RecalibLivrable[];
   rapports: RecalibRapport[];
-  documents: RecalibDocument[];
   scope: "full_plan" | "downstream_only" | "single_week";
 }
 
-export function buildRecalibrationPrompt(
-  state: RecalibrationState,
-  ragContext: string = "",
-  rules: Rule[] = [],
-  missionContext: string = ""
-): string {
-  const weekSummaries = state.weeks.map((w) => {
-    const weekTasks = state.tasks.filter((t) => t.weekId === w.id);
-    const done = weekTasks.filter((t) => t.status === "fait").length;
-    const blocked = weekTasks.filter((t) => t.status === "bloqué").length;
-    const isPast = w.id < state.currentWeek;
-    const weekLivrables = state.livrables.filter((l) => l.weekId === w.id);
-    const weekRapports = state.rapports.filter((r) => r.weekId === w.id);
+/**
+ * Bloc système stable pour la recalibration : rôle, contexte mission,
+ * consignes métier fixes, schéma JSON de sortie. Ce bloc ne dépend PAS
+ * de l'état courant de la mission — il ne change qu'à la modification
+ * manuelle du contexte mission par l'admin. Cachable côté Anthropic via
+ * `callLLMCached` (chantier 4, audit LLM).
+ */
+function buildRecalibrationSystem(missionContext: string): string {
+  return `Tu es un assistant de pilotage de mission de consulting.
 
-    return `Semaine ${w.id} (${w.phase} — ${w.title}) [${w.budget_jh} jh]${isPast ? " [PASSÉE]" : w.id === state.currentWeek ? " [EN COURS]" : ""}
-  Tâches : ${weekTasks.length} total, ${done} faites, ${blocked} bloquées
-  Tâches non-faites : ${weekTasks.filter((t) => t.status !== "fait").map((t) => `[${t.id}] ${t.label}`).join(" ; ") || "—"}
-  Livrables rattachés : ${weekLivrables.map((l) => `[${l.id}] ${l.label} (${l.status})`).join(" ; ") || "—"}
-  Rapports rattachés : ${weekRapports.map((r) => `[${r.id}] ${r.label} (lot ${r.lot}, ${r.etat})`).join(" ; ") || "—"}`;
-  });
+${buildMissionBlock(missionContext)}Tu effectues une recalibration du plan de mission : tu reçois l'état
+courant (semaines, tâches, risques, décisions, événements, changements
+récents, contexte documentaire RAG) et tu proposes les modifications
+nécessaires pour que le plan reste cohérent.
 
-  const activeRisks = state.risks.filter((r) => r.status === "actif");
-  const orphanRapports = state.rapports.filter((r) => r.weekId === null);
-
-  const scopeInstructions: Record<typeof state.scope, string> = {
-    full_plan: `Scope : PLAN COMPLET — tu peux ré-attribuer des tâches, livrables et rapports
-sur N'IMPORTE QUELLE semaine (1 à ${state.weeks.length}), y compris celles déjà passées
-si une décision récente le rend nécessaire. Ne touche PAS les tâches marquées "fait".`,
-    downstream_only: `Scope : AVAL UNIQUEMENT — tu ne modifies que les semaines ≥ ${state.currentWeek}.
-Les semaines passées sont intouchables.`,
-    single_week: `Scope : SEMAINE UNIQUE — tu ne modifies que la semaine ${state.currentWeek}.`,
-  };
-
-  return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un assistant de pilotage de mission de consulting.
-La mission est actuellement à la semaine ${state.currentWeek}.
-${ragContext}
-${scopeInstructions[state.scope]}
-
-État complet du projet :
-
-${weekSummaries.join("\n\n")}
-${orphanRapports.length > 0 ? `\nRapports non-affectés : ${orphanRapports.map((r) => `[${r.id}] ${r.label} (lot ${r.lot})`).join(" ; ")}\n` : ""}
-Risques actifs :
-${activeRisks.map((r) => `- ${r.label} (impact: ${r.impact}, proba: ${r.probability})`).join("\n") || "(aucun)"}
-
-DÉCISIONS ACTIVES (tu DOIS les respecter impérativement) :
-${state.decisions.length > 0 ? state.decisions.map((d) => `- [${d.id}] S${d.weekId ?? "?"} : ${d.statement}${d.rationale ? ` — motifs : ${d.rationale}` : ""}`).join("\n") : "(aucune)"}
-
-DOCUMENTS DE LA MISSION (tous, les plus récents en premier — index exhaustif) :
-${(() => {
-  if (state.documents.length === 0) return "(aucun)";
-  const MAX = 40;
-  const shown = state.documents.slice(0, MAX);
-  const body = shown
-    .map((d) => {
-      const week = d.weekId ? ` S${d.weekId}` : "";
-      const date = d.createdAt?.slice(0, 10) ?? "";
-      const snippet = d.snippet?.replace(/\s+/g, " ").slice(0, 200) ?? "";
-      return `- [${d.id}] ${d.type}/${d.source}${week} · ${date} · « ${d.title} » — ${snippet}`;
-    })
-    .join("\n");
-  const more =
-    state.documents.length > MAX
-      ? `\n(+${state.documents.length - MAX} autres docs non affichés — utilise le RAG ci-dessus si tu en as besoin)`
-      : "";
-  return body + more;
-})()}
-
-Ces documents peuvent contenir des contraintes, décisions informelles,
-engagements client qui ne sont pas (encore) dans la liste des décisions
-formelles. Si un doc récent indique quelque chose qui impacte le plan,
-prends-le en compte dans ta recalibration.
-
-Derniers événements :
-${state.events.slice(0, 15).map((e) => `- ${e.type}: ${e.label}`).join("\n")}
-
-Recalibre le plan dans le scope autorisé :
-- Préserve TOUJOURS les tâches "fait"
+CONSIGNES MÉTIER (impératives) :
+- Préserve TOUJOURS les tâches dont status = "fait".
 - Si une décision dit "focus X sur semaines A-B", les livrables/rapports qui
-  sortent de ce focus DOIVENT être déplacés hors de ces semaines (ou annulés)
-- Les livrables/rapports peuvent changer de semaine, changer de statut,
-  ou être marqués "annulés" si une décision les rend caducs
-- Reporte les blocages intelligemment
-- Respecte le budget jh par semaine
+  sortent de ce focus DOIVENT être déplacés hors de ces semaines (ou annulés).
+- Les livrables/rapports peuvent changer de semaine, changer de statut, ou
+  être marqués "annulés" si une décision les rend caducs.
+- Reporte les blocages intelligemment.
+- Respecte le budget jh par semaine.
 - N'invente pas de nouveaux livrables/rapports sans fondement — si tu penses
-  qu'il en manque, signale-le dans carryover_notes plutôt que d'en créer
+  qu'il en manque, signale-le dans carryover_notes plutôt que d'en créer.
+- Tu peux modifier le **descriptif** d'une semaine (titre, phase, budget,
+  actions, livrables prévus) si une décision rend caduque la définition
+  initiale. Ex : S4 "Rapports R2 & R3" devient phase AST si la décision
+  "focus AST S1-S5" réaffecte R2/R3 ailleurs.
 
-Les owners possibles sont : "Paul", "Paul B.", "Client".
-Les priorités possibles sont : "haute", "moyenne", "basse".
-Les statuts de livrable : "planifié" | "en cours" | "livré" | "validé" | "annulé".
-Les états de rapport : "à faire" | "en cours" | "livré" | "annulé".
+VALEURS AUTORISÉES :
+- owners : "Paul", "Paul B.", "Client"
+- priorités : "haute", "moyenne", "basse"
+- statuts livrable : "planifié" | "en cours" | "livré" | "validé" | "annulé"
+- états rapport : "à faire" | "en cours" | "livré" | "annulé"
 
-Tu peux aussi modifier le **descriptif** d'une semaine (titre, phase, budget,
-actions prévues, livrables prévus) si une décision rend caduque la définition
-initiale. Exemple : S4 s'appelle "Rapports R2 & R3" mais la décision "focus
-AST S1-S5" réaffecte R2/R3 vers une autre phase — le titre et le plan des
-livrables de S4 doivent changer en conséquence.
+DÉTECTION D'INCOHÉRENCES :
+En plus de la recalibration, signale les CONTRADICTIONS que tu repères entre
+les données fraîches (CHANGEMENTS RÉCENTS, décisions, événements) et l'état
+figé (contexte mission, chunks RAG, plan initial). C'est un signal user,
+séparé de la recalib. Sois prudent : si tu n'es pas sûr, ne signale pas.
 
-Réponds UNIQUEMENT avec du JSON (strict, sans backticks) :
+4 types :
+- factual : A dit X, B dit non-X (ex : CR "rapport fini", DB "en cours")
+- scope_drift : nouvel input hors périmètre initial
+- constraint_change : deadline, budget, effectif, accès data qui bouge
+- hypothesis_invalidated : hypothèse de travail qui s'effondre
+3 sévérités : minor, moderate, major.
+
+FORMAT DE RÉPONSE (strict JSON, sans backticks) :
 {
   "weeks": {
     "1": [{"label": "...", "owner": "...", "priority": "...", "confidence": 0.7, "reasoning": "..."}]
@@ -322,6 +276,16 @@ Réponds UNIQUEMENT avec du JSON (strict, sans backticks) :
   "rapport_changes": [
     {"id": "rapport-xxx", "new_week_id": 5, "new_etat": "à faire", "reason": "réalignement après focus AST"}
   ],
+  "detected_incoherences": [
+    {
+      "kind": "factual|scope_drift|constraint_change|hypothesis_invalidated",
+      "severity": "minor|moderate|major",
+      "description": "phrase courte décrivant le conflit",
+      "conflicting_entity_type": "task|risk|livrable|rapport|decision|week|document",
+      "conflicting_entity_id": "id de l'entité en conflit",
+      "auto_resolution": "action proposée, ou null si l'utilisateur doit trancher"
+    }
+  ],
   "carryover_notes": "Explication synthétique : ce qui bouge, ce qui est préservé, pourquoi."
 }
 
@@ -329,7 +293,67 @@ Tous les champs de *_changes sont optionnels sauf "id" (ne mets que ce qui
 CHANGE). new_week_id peut être null pour désaffecter un livrable/rapport.
 Les "weeks" doivent couvrir UNIQUEMENT les semaines que tu modifies dans ton
 scope. Pour une semaine dont tu changes le descriptif (week_changes), pense
-aussi à régénérer ses tasks dans "weeks" — la table tasks a été vidée.`;
+aussi à régénérer ses tasks dans "weeks" — la table tasks a été vidée.
+"detected_incoherences" peut être [] si tu n'as rien détecté de sûr.`;
+}
+
+/**
+ * Retourne `{ system, user }` pour un appel `callLLMCached`. Le `system`
+ * est stable (cachable 5 min), `user` contient tout l'état frais.
+ */
+export function buildRecalibrationPrompt(
+  state: RecalibrationState,
+  ragContext: string = "",
+  rules: Rule[] = [],
+  missionContext: string = "",
+  recentChanges: string = ""
+): { system: string; user: string } {
+  const weekSummaries = state.weeks.map((w) => {
+    const weekTasks = state.tasks.filter((t) => t.weekId === w.id);
+    const done = weekTasks.filter((t) => t.status === "fait").length;
+    const blocked = weekTasks.filter((t) => t.status === "bloqué").length;
+    const isPast = w.id < state.currentWeek;
+    const weekLivrables = state.livrables.filter((l) => l.weekId === w.id);
+    const weekRapports = state.rapports.filter((r) => r.weekId === w.id);
+
+    return `Semaine ${w.id} (${w.phase} — ${w.title}) [${w.budget_jh} jh]${isPast ? " [PASSÉE]" : w.id === state.currentWeek ? " [EN COURS]" : ""}
+  Tâches : ${weekTasks.length} total, ${done} faites, ${blocked} bloquées
+  Tâches non-faites : ${weekTasks.filter((t) => t.status !== "fait").map((t) => `[${t.id}] ${t.label}`).join(" ; ") || "—"}
+  Livrables rattachés : ${weekLivrables.map((l) => `[${l.id}] ${l.label} (${l.status})`).join(" ; ") || "—"}
+  Rapports rattachés : ${weekRapports.map((r) => `[${r.id}] ${r.label} (lot ${r.lot}, ${r.etat})`).join(" ; ") || "—"}`;
+  });
+
+  const activeRisks = state.risks.filter((r) => r.status === "actif");
+  const orphanRapports = state.rapports.filter((r) => r.weekId === null);
+
+  const scopeInstructions: Record<typeof state.scope, string> = {
+    full_plan: `Scope : PLAN COMPLET — tu peux ré-attribuer des tâches, livrables et rapports sur N'IMPORTE QUELLE semaine (1 à ${state.weeks.length}), y compris celles déjà passées si une décision récente le rend nécessaire. Ne touche PAS les tâches marquées "fait".`,
+    downstream_only: `Scope : AVAL UNIQUEMENT — tu ne modifies que les semaines ≥ ${state.currentWeek}. Les semaines passées sont intouchables.`,
+    single_week: `Scope : SEMAINE UNIQUE — tu ne modifies que la semaine ${state.currentWeek}.`,
+  };
+
+  const user = `${buildRulesBlock(rules)}La mission est actuellement à la semaine ${state.currentWeek}.
+${ragContext}
+${scopeInstructions[state.scope]}
+
+État complet du projet :
+
+${weekSummaries.join("\n\n")}
+${orphanRapports.length > 0 ? `\nRapports non-affectés : ${orphanRapports.map((r) => `[${r.id}] ${r.label} (lot ${r.lot})`).join(" ; ")}\n` : ""}
+Risques actifs :
+${activeRisks.map((r) => `- ${r.label} (impact: ${r.impact}, proba: ${r.probability})`).join("\n") || "(aucun)"}
+
+DÉCISIONS ACTIVES (tu DOIS les respecter impérativement) :
+${state.decisions.length > 0 ? state.decisions.map((d) => `- [${d.id}] S${d.weekId ?? "?"} : ${d.statement}${d.rationale ? ` — motifs : ${d.rationale}` : ""}`).join("\n") : "(aucune)"}
+
+Pour les documents de la mission (CR, specs, engagements client), réfère-toi au bloc "CONTEXTE DOCUMENTAIRE PERTINENT (RAG)" ci-dessus.
+
+Derniers événements :
+${state.events.slice(0, 15).map((e) => `- ${e.type}: ${e.label}`).join("\n")}
+${recentChanges}
+Recalibre maintenant le plan dans le scope autorisé et réponds en JSON strict selon le schéma défini.`;
+
+  return { system: buildRecalibrationSystem(missionContext), user };
 }
 
 interface CreateLivrableContext {

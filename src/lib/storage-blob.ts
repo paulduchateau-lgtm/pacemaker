@@ -22,5 +22,3 @@ export async function uploadImage(
 export async function deleteFile(url: string): Promise<void> {
   await del(url);
 }
-
-export const deleteImage = deleteFile;

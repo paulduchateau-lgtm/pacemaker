@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callLLMWithUsage, parseJSON } from "@/lib/llm";
+import { callLLMCached, parseJSON } from "@/lib/llm";
 import { buildParseUploadPrompt } from "@/lib/prompts";
 import { execute } from "@/lib/db";
 import { resolveActiveMission } from "@/lib/mission";
-import { kickOffDetection } from "@/lib/incoherences";
 
 export const dynamic = "force-dynamic";
-// parse-upload fait 1 appel LLM (parse CR) puis déclenche des détections et
-// potentiellement une recalib en arrière-plan. On prend 60s de marge.
+// parse-upload fait 1 appel LLM (parse CR) puis déclenche une recalib qui
+// inclut désormais la détection d'incohérences dans sa sortie JSON.
 export const maxDuration = 60;
 
 interface RichDecision {
@@ -64,19 +63,19 @@ export async function POST(req: NextRequest) {
       { missionId: mission.id },
     );
     const missionContext = await getMissionContext({ missionId: mission.id });
-    const prompt = buildParseUploadPrompt(
+    const { system, user } = buildParseUploadPrompt(
       text,
       weekId,
       ragContext,
       rules,
       missionContext,
     );
-    const { text: result, usage, model } = await callLLMWithUsage(prompt, 3000);
+    const { text: result, usage, model } = await callLLMCached(system, user, 3000);
 
     const generationId = await trackGeneration({
       generationType: "parse_cr",
       context: { weekId },
-      prompt,
+      prompt: `=== SYSTEM ===\n${system}\n\n=== USER ===\n${user}`,
       rawOutput: result,
       appliedRuleIds: rules.map((r) => r.id),
       weekId,
@@ -185,15 +184,6 @@ export async function POST(req: NextRequest) {
       "INSERT INTO events (id, type, label, week_id, content, mission_id) VALUES (?, 'upload', ?, ?, ?, ?)",
       [evtId, `CR importé — S${weekId}`, weekId, text.slice(0, 500), mission.id],
     );
-
-    // Détection d'incohérences en arrière-plan (non-bloquante, chantier 3).
-    kickOffDetection({
-      missionId: mission.id,
-      sourceEntityType: "cr_upload",
-      sourceEntityId: docId,
-      summary: text.slice(0, 1500),
-      triggerGenerationId: generationId,
-    });
 
     // Chantier 8 : temps gagné par parsing CR (action user-triggered).
     try {

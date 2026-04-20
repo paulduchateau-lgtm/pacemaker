@@ -1,4 +1,5 @@
 import { query } from "../db";
+import { getCurrentWeek } from "../current-week";
 import type { Budget, Risk, Task, Week } from "@/types";
 
 export interface CreateLivrableCtx {
@@ -84,8 +85,8 @@ export async function loadLivrableContext(
     mitigation: r.mitigation as string,
   }));
 
-  // Budget et current_week restent globaux pour l'instant (non scopés par
-  // mission au chantier 1 — project k/v non migrée).
+  // Budget reste global pour l'instant (non scopé par mission — project k/v
+  // non migrée). current_week est désormais scopé par mission via getCurrentWeek.
   const budgetRow = await query(
     "SELECT value FROM project WHERE key = 'budget'",
   );
@@ -100,10 +101,7 @@ export async function loadLivrableContext(
         echeances: [],
       };
 
-  const cwRow = await query(
-    "SELECT value FROM project WHERE key = 'current_week'",
-  );
-  const currentWeek = cwRow.length ? parseInt(cwRow[0].value as string) : 1;
+  const currentWeek = await getCurrentWeek(missionId);
 
   return { task, week, allWeeks, allTasks, risks, budget, currentWeek };
 }

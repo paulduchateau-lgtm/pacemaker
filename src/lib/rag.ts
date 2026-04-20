@@ -114,14 +114,25 @@ export async function searchDocs(
 
 /**
  * Contexte RAG à injecter en tête d'un prompt LLM, scopé à la mission.
+ *
+ * - `weekId` : si fourni, durcit le seuil par défaut à 0.75 (query plus
+ *   précise attendue) ; sinon 0.70.
+ * - `threshold` / `limit` : overrides explicites. Chantier 4 — la recalib
+ *   utilise 0.65 / 12 depuis qu'elle ne passe plus l'index documents complet.
  */
 export async function getRelevantContext(
   queryText: string,
-  opts: { weekId?: number; missionId?: string } = {},
+  opts: {
+    weekId?: number;
+    missionId?: string;
+    threshold?: number;
+    limit?: number;
+  } = {},
 ): Promise<string> {
   try {
-    const results = await searchDocs(queryText, 8, opts.missionId);
-    const threshold = opts.weekId ? 0.75 : 0.7;
+    const limit = opts.limit ?? 8;
+    const results = await searchDocs(queryText, limit, opts.missionId);
+    const threshold = opts.threshold ?? (opts.weekId ? 0.75 : 0.7);
     const relevant = results.filter((r) => r.distance <= threshold);
 
     if (relevant.length === 0) return "";

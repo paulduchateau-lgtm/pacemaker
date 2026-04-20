@@ -129,18 +129,8 @@ export async function POST(req: NextRequest) {
     // Await synchrone (sur Vercel serverless, le fire-and-forget est tué).
     try {
       const { performRecalibration } = await import("@/lib/recalibration");
-      let currentWeek = 1;
-      try {
-        const rows = await query(
-          "SELECT value FROM project WHERE key = 'current_week'",
-        );
-        if (rows[0]?.value) {
-          const n = parseInt(String(rows[0].value), 10);
-          if (Number.isFinite(n) && n > 0) currentWeek = n;
-        }
-      } catch {
-        /* fallback */
-      }
+      const { getCurrentWeek } = await import("@/lib/current-week");
+      const currentWeek = await getCurrentWeek(mission.id);
       await performRecalibration({
         missionId: mission.id,
         currentWeek,

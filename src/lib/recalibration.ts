@@ -1,10 +1,12 @@
 import { execute, query } from "./db";
-import { callLLMWithUsage, parseJSON } from "./llm";
+import { callLLMCached, parseJSON } from "./llm";
 import { trackGeneration } from "./corrections";
 import { buildRecalibrationPrompt } from "./prompts";
 import { getRelevantContext } from "./rag";
 import { getRelevantRules } from "./rules";
 import { getMissionContext } from "./mission-context";
+import { buildRecentChangesBlock } from "./recent-changes";
+import { getCurrentWeek } from "./current-week";
 import type { Incoherence } from "./incoherences";
 import type { MissionEvent, Risk, Task, Week } from "@/types";
 
@@ -291,9 +293,6 @@ export async function snapshotForRecalibration(
   };
 }
 
-/** @deprecated — conservé pour backcompat interne. Utiliser snapshotForRecalibration. */
-export const snapshotFutureTasks = snapshotForRecalibration;
-
 export async function persistRecalibration(params: {
   missionId: string;
   trigger: RecalibTrigger;
@@ -358,11 +357,20 @@ interface WeekChange {
   new_livrables_plan?: string[];
   reason?: string;
 }
+interface DetectedIncoherence {
+  kind: "factual" | "scope_drift" | "constraint_change" | "hypothesis_invalidated";
+  severity?: "minor" | "moderate" | "major";
+  description: string;
+  conflicting_entity_type: string;
+  conflicting_entity_id: string;
+  auto_resolution?: string | null;
+}
 interface RecalibResult {
   weeks: Record<string, { label: string; owner: string; priority: string; confidence?: number; reasoning?: string }[]>;
   week_changes?: WeekChange[];
   livrable_changes?: LivrableChange[];
   rapport_changes?: RapportChange[];
+  detected_incoherences?: DetectedIncoherence[];
   carryover_notes: string;
 }
 
@@ -459,10 +467,13 @@ export async function performRecalibration(
 
   // Chantier refonte : décisions, livrables, rapports sont maintenant injectés
   // dans le prompt (avant ils manquaient → le LLM ne voyait pas la contrainte).
+  // Chantier 4 : LIMIT 40 → 15 (les plus récentes, les anciennes sont supposées
+  // déjà absorbées dans le plan et accessibles via RAG si besoin). Gain ~600
+  // tokens input par recalibration.
   const decisionRows = await query(
     `SELECT id, statement, rationale, week_id FROM decisions
      WHERE mission_id = ? AND status IN ('actée','révisée','proposée')
-     ORDER BY acted_at DESC LIMIT 40`,
+     ORDER BY acted_at DESC LIMIT 15`,
     [missionId],
   );
   const decisions = decisionRows.map((r) => ({
@@ -499,31 +510,15 @@ export async function performRecalibration(
     complexite: String(r.complexite),
   }));
 
-  // Tous les documents de la mission : index exhaustif passé au LLM
-  // (titre + type + snippet). Le LLM ne traite pas le contenu intégral
-  // mais peut "voir" qu'un doc existe et détecter une contrainte implicite
-  // même quand le RAG sémantique filtre le chunk. Cf. docs/design note A'.
-  const docRows = await query(
-    `SELECT id, title, type, source, week_id,
-            substr(content, 1, 250) AS snippet, created_at
-     FROM documents WHERE mission_id = ?
-     ORDER BY created_at DESC`,
-    [missionId],
-  );
-  const documents = docRows.map((r) => ({
-    id: String(r.id),
-    title: String(r.title),
-    type: String(r.type ?? "autre"),
-    source: String(r.source ?? "manual"),
-    weekId: (r.week_id as number | null) ?? null,
-    createdAt: String(r.created_at ?? ""),
-    snippet: String(r.snippet ?? ""),
-  }));
+  // Chantier 4 (audit LLM) : on ne passe plus l'index exhaustif des documents
+  // au LLM. Le RAG ci-dessous (seuil élargi 0.65, limit 12) fait le travail
+  // de récupération des chunks pertinents avec leur titre de doc en préfixe.
+  // Gain mesuré : ~2500 tokens input par recalibration.
 
   // Préparation du prompt
   const ragContext = await getRelevantContext(
     `recalibration semaine ${currentWeek} ${scope}`,
-    { missionId },
+    { missionId, threshold: 0.65, limit: 12 },
   );
   const rules = await getRelevantRules(
     "recalib",
@@ -531,8 +526,9 @@ export async function performRecalibration(
     { missionId },
   );
   const missionContext = await getMissionContext({ missionId });
+  const recent = await buildRecentChangesBlock({ missionId });
 
-  const prompt = buildRecalibrationPrompt(
+  const { system, user } = buildRecalibrationPrompt(
     {
       currentWeek,
       weeks,
@@ -542,16 +538,19 @@ export async function performRecalibration(
       decisions,
       livrables,
       rapports,
-      documents,
       scope,
     },
     ragContext,
     rules,
     missionContext,
+    recent.block,
   );
 
   console.log(
-    `[recalib] CONTEXT decisions=${decisions.length} livrables=${livrables.length} rapports=${rapports.length} tasks=${tasks.length} risks=${risks.length} events=${events.length} docs=${documents.length} rules=${rules.length} missionCtx=${missionContext.length}c ragCtx=${ragContext.length}c`,
+    `[recalib] CONTEXT decisions=${decisions.length} livrables=${livrables.length} rapports=${rapports.length} tasks=${tasks.length} risks=${risks.length} events=${events.length} rules=${rules.length} missionCtx=${missionContext.length}c ragCtx=${ragContext.length}c recentChanges=${recent.itemCount}items systemSize=${system.length}c userSize=${user.length}c`,
+  );
+  console.log(
+    `[recalib] RECENT_CHANGES since=${recent.sinceIso} items=${recent.itemCount}`,
   );
   if (decisions.length > 0) {
     console.log(
@@ -561,19 +560,38 @@ export async function performRecalibration(
         .join(" | "),
     );
   }
-  console.log(`[recalib] PROMPT head (500c): ${prompt.slice(0, 500)}`);
-
-  // Appel LLM avec télémétrie
-  const { text: result, usage, model } = await callLLMWithUsage(prompt, 4000);
+  // Échantillon fin du prompt user : les données fraîches.
+  const FRESH_PREVIEW = 1500;
+  const freshSection = user.slice(
+    Math.max(0, user.indexOf("État complet du projet")),
+  );
   console.log(
-    `[recalib] LLM done in=${usage.inputTokens}tk out=${usage.outputTokens}tk model=${model} t=${Date.now() - tStart}ms`,
+    `[recalib] USER fresh-state (${FRESH_PREVIEW}c): ${freshSection.slice(0, FRESH_PREVIEW)}`,
+  );
+  if (recent.itemCount > 0) {
+    const recentIdx = user.indexOf("=== DONNÉES MODIFIÉES");
+    if (recentIdx >= 0) {
+      const endIdx = user.indexOf("=== FIN CHANGEMENTS", recentIdx);
+      console.log(
+        `[recalib] RECENT_CHANGES block:\n${user.slice(recentIdx, endIdx > 0 ? endIdx + 60 : recentIdx + 2000)}`,
+      );
+    }
+  }
+  if (process.env.RECALIB_DEBUG === "1") {
+    console.log(`[recalib] SYSTEM FULL:\n${system}\n\n[recalib] USER FULL:\n${user}`);
+  }
+
+  // Appel LLM avec prompt caching (system cachable 5 min côté Anthropic).
+  const { text: result, usage, model } = await callLLMCached(system, user, 4000);
+  console.log(
+    `[recalib] LLM done in=${usage.inputTokens}tk out=${usage.outputTokens}tk cacheWrite=${usage.cacheCreationTokens ?? 0}tk cacheRead=${usage.cacheReadTokens ?? 0}tk model=${model} t=${Date.now() - tStart}ms`,
   );
   console.log(`[recalib] OUTPUT head (500c): ${result.slice(0, 500)}`);
 
   const generationId = await trackGeneration({
     generationType: "recalib",
     context: { currentWeek, scope, trigger, triggerRef: triggerRef ?? null },
-    prompt,
+    prompt: `=== SYSTEM ===\n${system}\n\n=== USER ===\n${user}`,
     rawOutput: result,
     appliedRuleIds: rules.map((r) => r.id),
     weekId: currentWeek,
@@ -751,6 +769,36 @@ export async function performRecalibration(
     reasoning: recalib.carryover_notes,
   });
 
+  // Incohérences détectées par le LLM pendant la recalibration (fusion avec
+  // l'ancien module detectIncoherences : même UI, même lifecycle, mais sans
+  // second appel LLM).
+  let incoherencesInserted = 0;
+  if (Array.isArray(recalib.detected_incoherences)) {
+    for (const inc of recalib.detected_incoherences) {
+      if (!inc?.kind || !inc?.description || !inc?.conflicting_entity_type) continue;
+      const incId = `inc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${incoherencesInserted}`;
+      await execute(
+        `INSERT INTO incoherences
+           (id, mission_id, kind, severity, description, source_entity_type,
+            source_entity_id, conflicting_entity_type, conflicting_entity_id,
+            auto_resolution)
+         VALUES (?, ?, ?, ?, ?, 'recalibration', ?, ?, ?, ?)`,
+        [
+          incId,
+          missionId,
+          inc.kind,
+          inc.severity ?? "moderate",
+          inc.description,
+          recalibrationId,
+          inc.conflicting_entity_type,
+          inc.conflicting_entity_id,
+          inc.auto_resolution ?? null,
+        ],
+      );
+      incoherencesInserted++;
+    }
+  }
+
   // Event dans le journal mission
   const evtId = `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   await execute(
@@ -804,7 +852,7 @@ export async function performRecalibration(
     generationId,
   };
   console.log(
-    `[recalib] END tasks=+${outcome.tasksAdded}/-${outcome.tasksRemoved} livrables_changed=${outcome.livrablesChanged} rapports_changed=${outcome.rapportsChanged} weeks_changed=${weekChangesApplied.length} totalMs=${Date.now() - tStart}`,
+    `[recalib] END tasks=+${outcome.tasksAdded}/-${outcome.tasksRemoved} livrables_changed=${outcome.livrablesChanged} rapports_changed=${outcome.rapportsChanged} weeks_changed=${weekChangesApplied.length} incoherences_flagged=${incoherencesInserted} totalMs=${Date.now() - tStart}`,
   );
   return outcome;
 }
@@ -843,19 +891,9 @@ export async function kickOffAutoRecalibration(params: {
     lastAutoTrigger.set(params.missionId, Date.now());
   }
 
-  // Récupère currentWeek depuis project k/v (fallback 1).
-  let currentWeek = 1;
-  try {
-    const rows = await query(
-      "SELECT value FROM project WHERE key = 'current_week'",
-    );
-    if (rows[0]?.value) {
-      const n = parseInt(String(rows[0].value), 10);
-      if (Number.isFinite(n) && n > 0) currentWeek = n;
-    }
-  } catch {
-    /* ignore */
-  }
+  // Scoped par mission pour éviter que la dernière mission visitée n'écrase
+  // la semaine courante des autres (cf. lib/current-week.ts).
+  const currentWeek = await getCurrentWeek(params.missionId);
 
   if (params.wait) {
     try {

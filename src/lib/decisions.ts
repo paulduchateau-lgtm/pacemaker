@@ -180,18 +180,8 @@ export async function createDecision(
   if (!opts.skipAutoRecalibration) {
     try {
       const { performRecalibration } = await import("./recalibration");
-      let currentWeek = 1;
-      try {
-        const rows = await query(
-          "SELECT value FROM project WHERE key = 'current_week'",
-        );
-        if (rows[0]?.value) {
-          const n = parseInt(String(rows[0].value), 10);
-          if (Number.isFinite(n) && n > 0) currentWeek = n;
-        }
-      } catch {
-        /* fallback week 1 */
-      }
+      const { getCurrentWeek } = await import("./current-week");
+      const currentWeek = await getCurrentWeek(missionId);
       await performRecalibration({
         missionId,
         currentWeek,
