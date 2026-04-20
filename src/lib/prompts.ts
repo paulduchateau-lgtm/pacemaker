@@ -179,6 +179,16 @@ export interface RecalibRapport {
   complexite: string;
 }
 
+export interface RecalibDocument {
+  id: string;
+  title: string;
+  type: string;
+  source: string;
+  weekId: number | null;
+  createdAt: string;
+  snippet: string;
+}
+
 interface RecalibrationState {
   currentWeek: number;
   weeks: Week[];
@@ -188,6 +198,7 @@ interface RecalibrationState {
   decisions: RecalibDecision[];
   livrables: RecalibLivrable[];
   rapports: RecalibRapport[];
+  documents: RecalibDocument[];
   scope: "full_plan" | "downstream_only" | "single_week";
 }
 
@@ -238,6 +249,31 @@ ${activeRisks.map((r) => `- ${r.label} (impact: ${r.impact}, proba: ${r.probabil
 
 DÉCISIONS ACTIVES (tu DOIS les respecter impérativement) :
 ${state.decisions.length > 0 ? state.decisions.map((d) => `- [${d.id}] S${d.weekId ?? "?"} : ${d.statement}${d.rationale ? ` — motifs : ${d.rationale}` : ""}`).join("\n") : "(aucune)"}
+
+DOCUMENTS DE LA MISSION (tous, les plus récents en premier — index exhaustif) :
+${(() => {
+  if (state.documents.length === 0) return "(aucun)";
+  const MAX = 40;
+  const shown = state.documents.slice(0, MAX);
+  const body = shown
+    .map((d) => {
+      const week = d.weekId ? ` S${d.weekId}` : "";
+      const date = d.createdAt?.slice(0, 10) ?? "";
+      const snippet = d.snippet?.replace(/\s+/g, " ").slice(0, 200) ?? "";
+      return `- [${d.id}] ${d.type}/${d.source}${week} · ${date} · « ${d.title} » — ${snippet}`;
+    })
+    .join("\n");
+  const more =
+    state.documents.length > MAX
+      ? `\n(+${state.documents.length - MAX} autres docs non affichés — utilise le RAG ci-dessus si tu en as besoin)`
+      : "";
+  return body + more;
+})()}
+
+Ces documents peuvent contenir des contraintes, décisions informelles,
+engagements client qui ne sont pas (encore) dans la liste des décisions
+formelles. Si un doc récent indique quelque chose qui impacte le plan,
+prends-le en compte dans ta recalibration.
 
 Derniers événements :
 ${state.events.slice(0, 15).map((e) => `- ${e.type}: ${e.label}`).join("\n")}

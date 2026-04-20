@@ -499,6 +499,27 @@ export async function performRecalibration(
     complexite: String(r.complexite),
   }));
 
+  // Tous les documents de la mission : index exhaustif passé au LLM
+  // (titre + type + snippet). Le LLM ne traite pas le contenu intégral
+  // mais peut "voir" qu'un doc existe et détecter une contrainte implicite
+  // même quand le RAG sémantique filtre le chunk. Cf. docs/design note A'.
+  const docRows = await query(
+    `SELECT id, title, type, source, week_id,
+            substr(content, 1, 250) AS snippet, created_at
+     FROM documents WHERE mission_id = ?
+     ORDER BY created_at DESC`,
+    [missionId],
+  );
+  const documents = docRows.map((r) => ({
+    id: String(r.id),
+    title: String(r.title),
+    type: String(r.type ?? "autre"),
+    source: String(r.source ?? "manual"),
+    weekId: (r.week_id as number | null) ?? null,
+    createdAt: String(r.created_at ?? ""),
+    snippet: String(r.snippet ?? ""),
+  }));
+
   // Préparation du prompt
   const ragContext = await getRelevantContext(
     `recalibration semaine ${currentWeek} ${scope}`,
@@ -521,6 +542,7 @@ export async function performRecalibration(
       decisions,
       livrables,
       rapports,
+      documents,
       scope,
     },
     ragContext,
@@ -529,7 +551,7 @@ export async function performRecalibration(
   );
 
   console.log(
-    `[recalib] CONTEXT decisions=${decisions.length} livrables=${livrables.length} rapports=${rapports.length} tasks=${tasks.length} risks=${risks.length} events=${events.length} rules=${rules.length} missionCtx=${missionContext.length}c ragCtx=${ragContext.length}c`,
+    `[recalib] CONTEXT decisions=${decisions.length} livrables=${livrables.length} rapports=${rapports.length} tasks=${tasks.length} risks=${risks.length} events=${events.length} docs=${documents.length} rules=${rules.length} missionCtx=${missionContext.length}c ragCtx=${ragContext.length}c`,
   );
   if (decisions.length > 0) {
     console.log(
