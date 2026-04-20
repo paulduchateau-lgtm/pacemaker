@@ -399,6 +399,47 @@ CREATE TABLE IF NOT EXISTS time_savings (
 CREATE INDEX IF NOT EXISTS idx_time_savings_mission ON time_savings(mission_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_time_savings_activity ON time_savings(mission_id, activity_type);
 
+-- =========================================================================
+-- Chantier 5 (intégration Plaud). Les transcripts de réunion enregistrés
+-- via Plaud arrivent en texte brut. Chaque transcript donne lieu à :
+--   1) une row dans `plaud_transcripts` (metadata + raw_content + résumé)
+--   2) une row dans `documents` (type='plaud') indexée en chunks RAG
+--   3) N rows dans `plaud_signals` extraits par LLM (signaux structurels
+--      decision/action/risk/opportunity + signaux émotionnels satisfaction/
+--      frustration/uncertainty/tension/posture_shift)
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS plaud_transcripts (
+  id TEXT PRIMARY KEY,
+  mission_id TEXT NOT NULL REFERENCES missions(id),
+  document_id TEXT REFERENCES documents(id),
+  author TEXT NOT NULL DEFAULT 'paul',
+  recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
+  context_label TEXT,
+  duration_seconds INTEGER,
+  raw_content TEXT NOT NULL,
+  summary TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_plaud_transcripts_mission ON plaud_transcripts(mission_id, recorded_at DESC);
+
+CREATE TABLE IF NOT EXISTS plaud_signals (
+  id TEXT PRIMARY KEY,
+  transcript_id TEXT NOT NULL REFERENCES plaud_transcripts(id) ON DELETE CASCADE,
+  mission_id TEXT NOT NULL REFERENCES missions(id),
+  kind TEXT NOT NULL CHECK(kind IN
+    ('decision','action','risk','opportunity',
+     'satisfaction','frustration','uncertainty','tension','posture_shift')),
+  content TEXT NOT NULL,
+  intensity TEXT NOT NULL DEFAULT 'moderate'
+    CHECK(intensity IN ('weak','moderate','strong')),
+  subject TEXT,
+  raw_excerpt TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_plaud_signals_mission_kind ON plaud_signals(mission_id, kind, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_plaud_signals_transcript ON plaud_signals(transcript_id);
+
 -- Index composites mission-first (chantier 1)
 CREATE INDEX IF NOT EXISTS idx_weeks_mission ON weeks(mission_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_mission_week ON tasks(mission_id, week_id);

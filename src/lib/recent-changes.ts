@@ -1,4 +1,5 @@
 import { query } from "./db";
+import { listRecentSignals } from "./plaud";
 
 /**
  * Construit un bloc "CHANGEMENTS RÉCENTS" à injecter en fin de prompt de
@@ -7,7 +8,12 @@ import { query } from "./db";
  * sur le contexte mission statique et les chunks RAG figés.
  *
  * Fenêtre : depuis la dernière recalibration réussie pour la mission, sinon
- * 7 jours glissants. Sources : decisions, events (hors recalib), schedule_changes.
+ * 7 jours glissants. Sources :
+ *   - decisions (actées depuis la fenêtre)
+ *   - events hors recalib
+ *   - schedule_changes
+ *   - plaud_signals (chantier 5) — signaux émotionnels/relationnels captés
+ *     par les transcripts Plaud ingérés
  * Les livrables/rapports n'ont pas de timestamp de modification — leurs
  * changements arrivent via decisions/events et via la recalibration elle-même.
  */
@@ -42,7 +48,7 @@ export async function buildRecentChangesBlock(opts: RecentChangesOptions): Promi
   const limit = opts.limit ?? 20;
   const sinceIso = opts.since ?? (await resolveSince(opts.missionId));
 
-  const [decisionRows, eventRows, scheduleRows] = await Promise.all([
+  const [decisionRows, eventRows, scheduleRows, plaudSignals] = await Promise.all([
     query(
       `SELECT id, statement, rationale, week_id, acted_at, status
        FROM decisions
@@ -64,6 +70,7 @@ export async function buildRecentChangesBlock(opts: RecentChangesOptions): Promi
        ORDER BY created_at DESC LIMIT ?`,
       [opts.missionId, sinceIso, limit],
     ),
+    listRecentSignals(opts.missionId, sinceIso, limit).catch(() => []),
   ]);
 
   const decisions = decisionRows.map(
@@ -79,12 +86,29 @@ export async function buildRecentChangesBlock(opts: RecentChangesOptions): Promi
       `- Planning [${String(s.id)}] S${s.week_id} ${String(s.field)} ${String(s.old_value ?? "∅")} → ${String(s.new_value)} (${String(s.change_type)})${s.reason ? ` — ${String(s.reason)}` : ""}`,
   );
 
+  // Signaux Plaud : on privilégie les signaux émotionnels/relationnels car
+  // les structurels (decision/action/risk) sont déjà capturés par les tables
+  // decisions/tasks/risks via des flux séparés.
+  const EMOTIONAL_KINDS = new Set([
+    "satisfaction",
+    "frustration",
+    "uncertainty",
+    "tension",
+    "posture_shift",
+  ]);
+  const emotionalSignals = plaudSignals.filter((s) => EMOTIONAL_KINDS.has(s.kind));
+  const plaud = emotionalSignals.map(
+    (s) =>
+      `- [${s.intensity}/${s.kind}]${s.subject ? ` ${s.subject} —` : ""} ${s.content}${s.rawExcerpt ? ` « ${s.rawExcerpt.slice(0, 140)} »` : ""} (transcript ${s.transcriptId})`,
+  );
+
   const sections: string[] = [];
   if (decisions.length) sections.push("Décisions actées :\n" + decisions.join("\n"));
   if (events.length) sections.push("Événements :\n" + events.join("\n"));
   if (schedule.length) sections.push("Changements de planning :\n" + schedule.join("\n"));
+  if (plaud.length) sections.push("Signaux Plaud (ton, tensions, satisfaction client) :\n" + plaud.join("\n"));
 
-  const itemCount = decisions.length + events.length + schedule.length;
+  const itemCount = decisions.length + events.length + schedule.length + plaud.length;
 
   if (itemCount === 0) {
     return {

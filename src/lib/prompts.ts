@@ -1,4 +1,13 @@
-import type { Week, Task, Risk, MissionEvent, Rule, Budget } from "@/types";
+import type {
+  Week,
+  Task,
+  Risk,
+  MissionEvent,
+  Rule,
+  Budget,
+  PlaudSignalKind,
+  PlaudSignalIntensity,
+} from "@/types";
 import { buildRulesBlock } from "./rules";
 
 interface TaskForLivrables {
@@ -445,4 +454,96 @@ CONSIGNES :
 ${targetFormat === "xlsx" ? '- Pour un livrable Excel, préfère "sheets" avec onglets nommés (ex: "Lisez-moi", "Synthèse", "Données", "Suivi").' : ""}
 ${targetFormat === "pptx" ? '- Pour une présentation, chaque "section" level=1 démarre une nouvelle slide. Garde 3-6 slides maximum.' : ""}
 - Termine par un "footer_legal" si une mention légale est pertinente.`;
+}
+
+// ─── Plaud (chantier 5) ──────────────────────────────────────────────────
+
+export interface PlaudSignalExtract {
+  kind: PlaudSignalKind;
+  content: string;
+  intensity: PlaudSignalIntensity;
+  subject?: string | null;
+  raw_excerpt?: string | null;
+}
+
+export interface PlaudExtractionResult {
+  summary: string;
+  signals: PlaudSignalExtract[];
+}
+
+function buildPlaudExtractionSystem(missionContext: string): string {
+  return `Tu es un assistant qui analyse des transcripts de réunion consulting
+enregistrés via Plaud (dictaphone qui transcrit).
+
+${buildMissionBlock(missionContext)}Ton travail : extraire deux choses de ce transcript.
+
+1) LES SIGNAUX STRUCTURELS (comme un CR classique) :
+   - decision    : une décision actée pendant la réunion
+   - action      : une action à faire (owner implicite ou explicite)
+   - risk        : un risque mentionné ou détecté
+   - opportunity : une opportunité identifiée
+
+2) LES SIGNAUX ÉMOTIONNELS / RELATIONNELS — C'EST LE VRAI INTÉRÊT DE PLAUD :
+   - satisfaction  : le client exprime de la satisfaction, de la reconnaissance,
+                     un "ça nous aide", "c'est exactement ce qu'on espérait"
+   - frustration   : impatience, agacement, "on devait avoir ça la semaine dernière"
+   - uncertainty   : hésitation, doute ("je ne sais pas si…", "c'est pas clair")
+   - tension       : désaccord entre deux personnes, friction dans la discussion,
+                     sujet évité, ton qui monte
+   - posture_shift : quelqu'un change de position en cours de réunion
+                     (était favorable, devient sceptique, ou l'inverse)
+
+Pour CHAQUE signal :
+- content      : phrase synthétique (ce qui s'est passé, pas la citation)
+- intensity    : "weak" | "moderate" | "strong"
+- subject      : qui est impliqué — "paul" | "paul_b" | "client" | "team" | null
+                 (pour signaux émotionnels / tension, toujours indiquer qui)
+- raw_excerpt  : citation brute du transcript (1-2 phrases maximum) qui appuie
+                 le signal. Si pas de citation claire (signal inféré), null.
+
+CONSIGNES FORTES :
+- N'INVENTE RIEN. Si le transcript ne contient aucun signal émotionnel,
+  retourne un tableau vide pour cette catégorie. Mieux vaut 0 signal qu'un
+  faux positif.
+- Les signaux émotionnels faibles ("weak") sont OK si la citation est claire ;
+  n'en abuse pas pour autant.
+- Un signal decision/action/risk peut aussi déclencher un signal tension ou
+  satisfaction si la discussion était contestée ou chaleureuse.
+- Pour le résumé : 3-5 phrases maximum, factuel, pas d'emoji.
+
+Réponds UNIQUEMENT avec du JSON strict (sans backticks) :
+{
+  "summary": "Résumé factuel de la réunion en 3-5 phrases.",
+  "signals": [
+    {
+      "kind": "decision|action|risk|opportunity|satisfaction|frustration|uncertainty|tension|posture_shift",
+      "content": "phrase synthétique",
+      "intensity": "weak|moderate|strong",
+      "subject": "paul|paul_b|client|team|null",
+      "raw_excerpt": "citation brute (ou null)"
+    }
+  ]
+}`;
+}
+
+export function buildPlaudExtractionPrompt(
+  transcript: string,
+  opts: { contextLabel?: string | null; author?: string; recordedAt?: string } = {},
+  missionContext: string = "",
+): { system: string; user: string } {
+  const meta: string[] = [];
+  if (opts.contextLabel) meta.push(`Contexte : ${opts.contextLabel}`);
+  if (opts.author) meta.push(`Auteur enregistrement : ${opts.author}`);
+  if (opts.recordedAt) meta.push(`Date : ${opts.recordedAt}`);
+  const metaBlock = meta.length > 0 ? meta.join("\n") + "\n\n" : "";
+
+  const user = `${metaBlock}Transcript Plaud à analyser :
+
+---
+${transcript}
+---
+
+Extrais le résumé + la liste des signaux selon le schéma JSON défini.`;
+
+  return { system: buildPlaudExtractionSystem(missionContext), user };
 }

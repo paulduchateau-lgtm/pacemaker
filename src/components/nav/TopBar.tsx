@@ -51,6 +51,7 @@ function buildGroups(slug: string): NavGroup[] {
       items: [
         { href: `${base}/capture`, label: "Capture photo" },
         { href: `${base}/docs`, label: "Documents" },
+        { href: `${base}/plaud`, label: "Plaud" },
         { href: `${base}/contexte`, label: "Contexte mission" },
       ],
     },

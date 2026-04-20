@@ -26,8 +26,46 @@ export type EventType =
 
 export type RapportLot = 1 | 2 | 3;
 export type RapportComplexite = "haute" | "moyenne" | "basse";
-export type DocType = "cr" | "note" | "spec" | "photo" | "autre";
-export type DocSource = "upload" | "vision" | "manual";
+export type DocType = "cr" | "note" | "spec" | "photo" | "plaud" | "autre";
+export type DocSource = "upload" | "vision" | "manual" | "plaud";
+
+// ─── Plaud (chantier 5) ────────────────────────────────
+export type PlaudSignalKind =
+  | "decision"
+  | "action"
+  | "risk"
+  | "opportunity"
+  | "satisfaction"
+  | "frustration"
+  | "uncertainty"
+  | "tension"
+  | "posture_shift";
+export type PlaudSignalIntensity = "weak" | "moderate" | "strong";
+
+export interface PlaudTranscript {
+  id: string;
+  missionId: string;
+  documentId: string | null;
+  author: string;
+  recordedAt: string;
+  contextLabel: string | null;
+  durationSeconds: number | null;
+  rawContent: string;
+  summary: string | null;
+  createdAt: string;
+}
+
+export interface PlaudSignal {
+  id: string;
+  transcriptId: string;
+  missionId: string;
+  kind: PlaudSignalKind;
+  content: string;
+  intensity: PlaudSignalIntensity;
+  subject: string | null;
+  rawExcerpt: string | null;
+  createdAt: string;
+}
 
 // ─── Entités ────────────────────────────────────────────
 
@@ -177,7 +215,7 @@ export interface Budget {
 
 // ─── Apprentissage continu ─────────────────────────────
 
-export type GenerationType = "tasks" | "parse_cr" | "recalib" | "vision" | "livrables";
+export type GenerationType = "tasks" | "parse_cr" | "recalib" | "vision" | "livrables" | "plaud";
 export type CorrectionStatus = "active" | "superseded" | "archived";
 
 export interface Generation {

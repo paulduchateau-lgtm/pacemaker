@@ -39,7 +39,10 @@ function buildGroups(slug: string): Group[] {
     },
     {
       label: "INPUTS",
-      items: [{ href: `${base}/contexte`, label: "Contexte mission" }],
+      items: [
+        { href: `${base}/plaud`, label: "Plaud" },
+        { href: `${base}/contexte`, label: "Contexte mission" },
+      ],
     },
     {
       label: "MÉTA",
