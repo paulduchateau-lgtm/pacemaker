@@ -10,9 +10,9 @@ export const dynamic = "force-dynamic";
 export default async function InboxPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }) {
-  const { slug } = await params;
+  const { slug } = params;
   const mission = await getMissionBySlug(slug);
   if (!mission) notFound();
 

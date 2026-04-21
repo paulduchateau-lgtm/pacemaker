@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 export default async function IncohV2Page({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }) {
-  const { slug } = await params;
+  const { slug } = params;
   const mission = await getMissionBySlug(slug);
   if (!mission) notFound();
   const incoherences = await listIncoherences(mission.id, { limit: 50 }).catch(

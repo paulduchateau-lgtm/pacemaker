@@ -43,9 +43,9 @@ export default async function V2Layout({
   params,
 }: {
   children: ReactNode;
-  params: Promise<Params>;
+  params: Params;
 }) {
-  const { slug } = await params;
+  const { slug } = params;
   const mission = await getMissionBySlug(slug).catch(() => null);
   if (!mission) notFound();
   const counts = await fetchCounts(mission.id);

@@ -29,9 +29,9 @@ function parseJsonList(raw: unknown): string[] {
 export default async function DecisionsV2Page({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }) {
-  const { slug } = await params;
+  const { slug } = params;
   const mission = await getMissionBySlug(slug);
   if (!mission) notFound();
 

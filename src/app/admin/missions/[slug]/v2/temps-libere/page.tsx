@@ -18,9 +18,9 @@ async function safe<T = Row>(sql: string, args: unknown[]): Promise<T[]> {
 export default async function TempsLiberePage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }) {
-  const { slug } = await params;
+  const { slug } = params;
   const mission = await getMissionBySlug(slug);
   if (!mission) notFound();
 
