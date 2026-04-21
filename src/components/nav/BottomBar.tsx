@@ -24,6 +24,7 @@ function buildGroups(slug: string): Group[] {
     {
       label: "SIGNAL",
       items: [
+        { href: `${base}/pulse`, label: "Pulse" },
         { href: `${base}/risques`, label: "Risques" },
         { href: `${base}/incoherences`, label: "Incohérences" },
         { href: `${base}/recalibrations`, label: "Recalibrages" },

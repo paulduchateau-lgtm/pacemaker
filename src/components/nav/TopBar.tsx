@@ -31,6 +31,7 @@ function buildGroups(slug: string): NavGroup[] {
       key: "signal",
       label: "Signal",
       items: [
+        { href: `${base}/pulse`, label: "Pulse" },
         { href: `${base}/risques`, label: "Risques" },
         { href: `${base}/incoherences`, label: "Incohérences" },
         { href: `${base}/recalibrations`, label: "Recalibrages" },

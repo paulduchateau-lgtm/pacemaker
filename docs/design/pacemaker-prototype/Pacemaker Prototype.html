@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<style data-omelette-injected>html,body{background:transparent}</style><script data-omelette-injected>(()=>{var $=["https://claude.ai","https://preview.claude.ai","https://eap-omelette.claude.ai"];var F=30000;var A=3000;document.addEventListener("DOMContentLoaded",()=>{const Q="transform-react-jsx-source";document.querySelectorAll('script[type="text/babel"],script[type="text/jsx"]').forEach((J,V)=>{const X=J.getAttribute("data-plugins")||"";if(X.indexOf(Q)<0){J.setAttribute("data-plugins",X?`${X},${Q}`:Q)}if(!J.hasAttribute("data-filename")){J.setAttribute("data-filename",J.getAttribute("src")||`inline-${V}`)}})});var W=window.parent;if(W&&W!==window){const Q=(z,k)=>{try{W.postMessage({__omelette_log:true,type:z,data:k},"*")}catch{}};["log","warn","error"].forEach((z)=>{const k=console[z];console[z]=(...C)=>{const D=C.map((w)=>{try{return typeof w==="object"?JSON.stringify(w):String(w)}catch{try{return String(w)}catch{return"[unstringifiable]"}}}).join(" ");Q(z,D);k.apply(console,C)}});window.addEventListener("error",(z)=>{const k=z.target;if(k&&k!==window&&k.tagName){const C=k.src||k.href||"";Q("resource_error",`${k.tagName} failed to load: ${C}`)}else{Q("error",`${z.message||"Unknown error"} at ${z.filename||"?"}:${z.lineno||0}:${z.colno||0}`)}},true);window.addEventListener("unhandledrejection",(z)=>{const k=z.reason;const C=k instanceof Error?`${k.message} ${k.stack}`:String(k);Q("error",`Unhandled rejection: ${C}`)});const J=()=>{try{W.postMessage({type:"omelette:height",height:document.documentElement.scrollHeight},"*")}catch{}};if(document.readyState==="complete")J();else window.addEventListener("load",J);if(window.ResizeObserver)new ResizeObserver(J).observe(document.documentElement);const V={};let X=0;window.claude={complete(z){return new Promise((k,C)=>{if(!$.length){C(new Error("claude.complete: no parent origin"));return}const D=`c${++X}`;const w=()=>setTimeout(()=>{delete V[D];C(new Error(`claude.complete: no data for ${F/1000}s`))},F);const K=w();V[D]={resolve:k,reject:C,text:"",t:K,arm:w};try{for(const Z of $){W.postMessage({__om_api:true,id:D,body:z},Z)}}catch(Z){clearTimeout(K);delete V[D];C(Z)}})}};const Y={};let h=0;window.omelette={writeFile:(z,k)=>new Promise((C,D)=>{if(!$.length){C();return}const w=`f${++h}`;const K=setTimeout(()=>{delete Y[w];C()},A);Y[w]={resolve:C,reject:D,t:K};try{for(const Z of $){W.postMessage({__om_file:true,id:w,op:"write",path:z,content:k},Z)}}catch{clearTimeout(K);delete Y[w];C()}})};const b=(z)=>{try{return JSON.stringify(z)}catch{return JSON.stringify(String(z))}};window.addEventListener("message",(z)=>{if($.indexOf(z.origin)<0)return;if(z.source!==W)return;const k=z.data;if(!k)return;if(k.__om_file_r){const w=Y[k.id];if(!w)return;clearTimeout(w.t);delete Y[k.id];if(k.ok)w.resolve();else w.reject(new Error(k.error||"write failed"));return}if(k.__om_api_r){const w=V[k.id];if(!w)return;if(k.error!=null){clearTimeout(w.t);delete V[k.id];w.reject(new Error(k.error));return}if(k.chunk!=null){clearTimeout(w.t);w.t=w.arm();w.text+=k.chunk;return}if(k.done){clearTimeout(w.t);delete V[k.id];w.resolve(k.text!=null?k.text:w.text);return}return}if(!k.__om_eval)return;const C=k;const D=(w)=>{z.source.postMessage({...w,__om_eval_r:1,id:C.id},z.origin)};try{const w=(0,eval)(C.code);if(w&&typeof w.then==="function"){w.then((K)=>D({ok:1,v:b(K)}),(K)=>D({ok:0,e:String(K)}))}else{D({ok:1,v:b(w)})}}catch(w){D({ok:0,e:String(w)})}})}})();
+</script>
+
+<meta charset="utf-8" />
+<title>Pacemaker — Copilote mission</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter+Tight:wght@400;450;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css?v=12" />
+</head>
+<body>
+<div id="root">
+  <div style="padding:40px;font-family:system-ui;color:#77746d">Chargement de Pacemaker…</div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js?v=3"></script>
+<script src="data-adapter.js?v=3"></script>
+<script type="text/babel" src="shell.jsx?v=3"></script>
+<script type="text/babel" src="pages-core.jsx?v=4"></script>
+<script type="text/babel" src="pages-extra.jsx?v=3"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const TWEAKS = /*EDITMODE-BEGIN*/{
+  "density": "comfortable",
+  "accentMode": "paper",
+  "showCopilot": true,
+  "activePage": "home",
+  "ambient": "still",
+  "theme": "light"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [tweaks, setTweaks] = useState(TWEAKS);
+  const [page, setPage] = useState(() => {
+    try { return localStorage.getItem("pm_page") || tweaks.activePage || "home"; }
+    catch(e) { return tweaks.activePage || "home"; }
+  });
+  const [cpTab, setCpTab] = useState("chat");
+  const [cpOpen, setCpOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+
+  useEffect(() => {
+    try { localStorage.setItem("pm_page", page); } catch(e){}
+  }, [page]);
+
+  useEffect(() => {
+    window.__nav = (id) => setPage(id);
+    window.__openCompose = () => { setCpTab("chat"); setCpOpen(true); };
+    window.__toggleCopilot = () => setCpOpen(v => !v);
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") { e.preventDefault(); setCpOpen(v => !v); }
+      if (e.key === "Escape") setCpOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Tweaks protocol
+  useEffect(() => {
+    const onMsg = (e) => {
+      const d = e.data || {};
+      if (d.type === "__activate_edit_mode") setEditMode(true);
+      if (d.type === "__deactivate_edit_mode") setEditMode(false);
+    };
+    window.addEventListener("message", onMsg);
+    window.parent.postMessage({ type: "__edit_mode_available" }, "*");
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  const updateTweak = (k, v) => {
+    setTweaks(prev => ({ ...prev, [k]: v }));
+    window.parent.postMessage({ type: "__edit_mode_set_keys", edits: { [k]: v } }, "*");
+  };
+
+  // Body-level class application
+  useEffect(() => {
+    const b = document.body;
+    b.className = "";
+    b.classList.add("density-" + tweaks.density);
+    b.classList.add("accent-" + tweaks.accentMode);
+    b.classList.add("theme-" + (tweaks.theme || "light"));
+    if (tweaks.ambient === "breathing") b.classList.add("ambient-breathing");
+  }, [tweaks]);
+
+  const counts = {
+    tasks: 12, decisions: 14, incoh: 3,
+    livrables: 8, sources: 34, inbox: 4,
+  };
+
+  const pageMeta = {
+    home:       { crumbs: ["Mission AGIRC-ARRCO · BI DAS", "Briefing"] },
+    plan:       { crumbs: ["Mission AGIRC-ARRCO · BI DAS", "Plan de mission"] },
+    pulse:      { crumbs: ["Mission AGIRC-ARRCO · BI DAS", "Pulse"] },
+    decisions:  { crumbs: ["Mission AGIRC-ARRCO · BI DAS", "Décisions"] },
+    incoh:      { crumbs: ["Mission AGIRC-ARRCO · BI DAS", "Incohérences"] },
+    livrables:  { crumbs: ["Mission AGIRC-ARRCO · BI DAS", "Livrables"] },
+    sources:    { crumbs: ["Mission AGIRC-ARRCO · BI DAS", "Sources & inputs"] },
+    inbox:      { crumbs: ["Mission AGIRC-ARRCO · BI DAS", "Inbox capture"] },
+    reports:    { crumbs: ["Mission AGIRC-ARRCO · BI DAS", "Temps libéré"] },
+    settings:   { crumbs: ["Mission AGIRC-ARRCO · BI DAS", "Réglages"] },
+  };
+
+  let PageEl;
+  switch (page) {
+    case "plan":      PageEl = <PlanPage />; break;
+    case "pulse":     PageEl = <PulsePage />; break;
+    case "decisions": PageEl = <DecisionsPage />; break;
+    case "incoh":     PageEl = <IncohPage />; break;
+    case "livrables": PageEl = <LivrablesPage />; break;
+    case "sources":   PageEl = <SourcesPage />; break;
+    case "inbox":     PageEl = <InboxPage />; break;
+    case "reports":   PageEl = <ReportsPage />; break;
+    default:          PageEl = <BriefingPage />;
+  }
+
+  const showCp = tweaks.showCopilot;
+
+  return (
+    <div className={"app-shell" + (cpOpen ? " copilot-open" : "")} data-screen-label={pageMeta[page]?.crumbs?.[1]}>
+      <Sidebar active={page} counts={counts} />
+      <main className="main">
+        <TopBar crumbs={pageMeta[page]?.crumbs || ["Mission"]} extra={
+          <>
+            <button className="icon-btn" onClick={() => updateTweak("theme", (tweaks.theme === "dark") ? "light" : "dark")} data-tip={tweaks.theme === "dark" ? "Passer en clair" : "Passer en sombre"}>
+              <Icon name={tweaks.theme === "dark" ? "sun" : "moon"} />
+            </button>
+            {showCp && (
+              <button className={"icon-btn" + (cpOpen ? " is-on" : "")} onClick={() => setCpOpen(v => !v)} data-tip="Copilote">
+                <Icon name="sparkle" />
+              </button>
+            )}
+          </>
+        } />
+        <div className="main-body">
+          {PageEl}
+        </div>
+      </main>
+      {showCp && (
+        <>
+          <div className="copilot-scrim" onClick={() => setCpOpen(false)} />
+          <CopilotConsole tab={cpTab} setTab={setCpTab} onClose={() => setCpOpen(false)} />
+        </>
+      )}
+      {showCp && !cpOpen && (
+        <button
+          onClick={() => setCpOpen(true)}
+          style={{
+            position: "fixed", right: 20, bottom: 20, zIndex: 30,
+            background: "var(--ink)", color: "var(--paper)",
+            border: "none", borderRadius: 999, padding: "10px 16px",
+            boxShadow: "0 8px 20px -6px rgba(28,28,26,0.35)",
+            display: "flex", alignItems: "center", gap: 8,
+            fontFamily: "var(--sans)", fontSize: 13, fontWeight: 500,
+            cursor: "pointer",
+          }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 0 3px rgba(165,217,0,0.22)" }} />
+          Copilote Pacemaker
+          <span style={{ fontFamily: "var(--mono)", fontSize: 10, opacity: 0.6, padding: "2px 5px", background: "rgba(255,255,255,0.1)", borderRadius: 3, marginLeft: 4 }}>⌘/</span>
+        </button>
+      )}
+      {editMode && <TweaksPanel tweaks={tweaks} set={updateTweak} />}
+    </div>
+  );
+}
+
+function TweaksPanel({ tweaks, set }) {
+  return (
+    <div style={{
+      position: "fixed", right: 16, bottom: 16, zIndex: 50,
+      width: 280, background: "var(--paper-elevated)",
+      border: "1px solid var(--border)", borderRadius: 10,
+      boxShadow: "0 12px 32px rgba(28,28,26,0.18)",
+      padding: 12, fontFamily: "var(--sans)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
+        <span style={{ fontWeight: 500, fontSize: 13 }}>Tweaks</span>
+        <span style={{ marginLeft: "auto", fontFamily: "var(--mono)", fontSize: 10, color: "var(--muted)" }}>live</span>
+      </div>
+
+      <TwRow label="Densité">
+        {["compact", "comfortable"].map(v =>
+          <button key={v} className={"chip" + (tweaks.density === v ? " on" : "")} onClick={() => set("density", v)}>{v}</button>
+        )}
+      </TwRow>
+
+      <TwRow label="Palette accent">
+        {[
+          ["paper", "Papier (défaut)"],
+          ["ink", "Encre foncée"],
+          ["olive", "Olive fluo"],
+        ].map(([v, l]) =>
+          <button key={v} className={"chip" + (tweaks.accentMode === v ? " on" : "")} onClick={() => set("accentMode", v)}>{l}</button>
+        )}
+      </TwRow>
+
+      <TwRow label="Copilote">
+        <button className={"chip" + (tweaks.showCopilot ? " on" : "")} onClick={() => set("showCopilot", !tweaks.showCopilot)}>{tweaks.showCopilot ? "affiché" : "masqué"}</button>
+      </TwRow>
+
+      <TwRow label="Ambient motion">
+        {["still", "breathing"].map(v =>
+          <button key={v} className={"chip" + (tweaks.ambient === v ? " on" : "")} onClick={() => set("ambient", v)}>{v}</button>
+        )}
+      </TwRow>
+
+      <TwRow label="Thème">
+        {[["light", "Clair"], ["dark", "Sombre"]].map(([v, l]) =>
+          <button key={v} className={"chip" + ((tweaks.theme || "light") === v ? " on" : "")} onClick={() => set("theme", v)}>{l}</button>
+        )}
+      </TwRow>
+
+      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-soft)" }}>
+        Les tweaks persistent dans le fichier source via le protocole hôte.
+      </div>
+
+      <style>{`
+        .chip { font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 5px;
+          border: 1px solid var(--border); background: var(--paper); color: var(--ink-dim); cursor: pointer;
+          text-transform: uppercase; letter-spacing: 0.06em; }
+        .chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+        .chip:hover { background: var(--paper-sunk); }
+        .chip.on:hover { background: var(--ink); }
+      `}</style>
+    </div>
+  );
+}
+
+function TwRow({ label, children }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--muted)", marginBottom: 5, letterSpacing: "0.08em" }}>{label.toUpperCase()}</div>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{children}</div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
