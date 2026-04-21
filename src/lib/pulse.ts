@@ -46,10 +46,42 @@ export interface PulseEvent {
   refId: string;
 }
 
+export interface SignalMixBucket {
+  label: "Positifs" | "Neutres" | "Négatifs" | "Bascules";
+  count: number;
+}
+
+export interface Insight {
+  id: string;
+  tone: "pos" | "neu" | "neg";
+  icon: "flag" | "warn" | "heart";
+  label: string;
+  title: string;
+  body: string;
+  rule: string;
+  action: string;
+}
+
+export interface MoodPoint {
+  day: string;                // ISO yyyy-mm-dd
+  pos: number;
+  neu: number;
+  neg: number;
+}
+
 export interface PulseData {
   stakeholders: Stakeholder[];
   events: PulseEvent[];
   pivots: PulseEvent[];
+  signalMix: SignalMixBucket[];
+  /** Score global 0..1, moyenne pondérée de la satisfaction stakeholders. */
+  moodScore: number;
+  /** Delta moodScore sur 7 jours (négatif = dégradation). */
+  moodDelta: number;
+  /** Série 14 jours : pour chaque jour, comptage pos/neu/neg. */
+  moodSeries: MoodPoint[];
+  /** Insights auto-détectés (règles simples). */
+  insights: Insight[];
   windowStart: string;
   windowEnd: string;
 }
@@ -327,6 +359,138 @@ async function computeEvents(missionId: string): Promise<{ events: PulseEvent[];
   return { events, pivots };
 }
 
+function computeSignalMix(events: PulseEvent[]): SignalMixBucket[] {
+  const pos = events.filter((e) => e.tone === "pos" && !e.pivot).length;
+  const neu = events.filter((e) => e.tone === "neu" && !e.pivot).length;
+  const neg = events.filter((e) => e.tone === "neg" && !e.pivot).length;
+  const pivots = events.filter((e) => e.pivot).length;
+  return [
+    { label: "Positifs", count: pos },
+    { label: "Neutres", count: neu },
+    { label: "Négatifs", count: neg },
+    { label: "Bascules", count: pivots },
+  ];
+}
+
+function computeMoodSeries(events: PulseEvent[]): MoodPoint[] {
+  // 14 derniers jours glissants.
+  const now = Date.now();
+  const dayMs = 24 * 3600 * 1000;
+  const days: MoodPoint[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now - i * dayMs);
+    const key = d.toISOString().slice(0, 10);
+    days.push({ day: key, pos: 0, neu: 0, neg: 0 });
+  }
+  const byDay = new Map(days.map((d) => [d.day, d]));
+  for (const e of events) {
+    const key = e.t.slice(0, 10);
+    const bucket = byDay.get(key);
+    if (!bucket) continue;
+    if (e.tone === "pos") bucket.pos++;
+    else if (e.tone === "neg") bucket.neg++;
+    else bucket.neu++;
+  }
+  return days;
+}
+
+function computeMoodScore(stakeholders: Stakeholder[]): { score: number; delta: number } {
+  if (stakeholders.length === 0) return { score: 0.5, delta: 0 };
+  // Pondération : sponsor/décideur comptent 2×, équipe 1×.
+  const weights = stakeholders.map((s) =>
+    /sponsor|décideur/i.test(s.role) ? 2 : 1,
+  );
+  const totalW = weights.reduce((a, b) => a + b, 0);
+  const score =
+    stakeholders.reduce((acc, s, i) => acc + s.sat * weights[i], 0) / totalW;
+  // Delta approximatif : moyenne des trends (up +0.05, down -0.05, flat 0).
+  const delta =
+    stakeholders.reduce(
+      (acc, s) => acc + (s.trend === "up" ? 0.05 : s.trend === "down" ? -0.05 : 0),
+      0,
+    ) / stakeholders.length;
+  return { score, delta };
+}
+
+/**
+ * Insights auto-détectés : règles simples sur les signaux collectés.
+ * Version MVP. Les règles plus fines (silence sponsor, friction métier...)
+ * viendront via le moteur corrections.ts + rules.ts dans une V2.
+ */
+function computeInsights(
+  stakeholders: Stakeholder[],
+  pivots: PulseEvent[],
+): Insight[] {
+  const out: Insight[] = [];
+
+  // Sponsor silence — pas d'interactions récentes sur un rôle sponsor
+  const sponsorSilent = stakeholders.find(
+    (s) => /sponsor/i.test(s.role) && s.interactions === 0,
+  );
+  if (sponsorSilent) {
+    out.push({
+      id: "sponsor_silence",
+      tone: "neg",
+      icon: "flag",
+      label: "Risque sponsor",
+      title: `Silence côté ${sponsorSilent.name}`,
+      body: `Aucun signal Plaud capté avec ${sponsorSilent.name}. Le plan a bougé pendant cette absence.`,
+      rule: "sponsor_silence = remonter au COPIL",
+      action: "Caler un point",
+    });
+  }
+
+  // Friction métier — stakeholder en trend down avec sat faible
+  const frictionSh = stakeholders.find(
+    (s) => s.trend === "down" && s.sat < 0.5 && s.interactions >= 2,
+  );
+  if (frictionSh) {
+    out.push({
+      id: "friction",
+      tone: "neg",
+      icon: "warn",
+      label: "Friction",
+      title: `${frictionSh.name} — tendance baissière`,
+      body: `Sat. ${Math.round(frictionSh.sat * 100)} ↓, ${frictionSh.interactions} interactions récentes. Friction détectée.`,
+      rule: "metier_friction_sat<0.5_trend_down = 1-1 court",
+      action: "Proposer un point",
+    });
+  }
+
+  // Ambassadeur — stakeholder en trend up avec sat élevée
+  const ambassador = stakeholders.find(
+    (s) => s.trend === "up" && s.sat >= 0.8 && s.interactions >= 2,
+  );
+  if (ambassador) {
+    out.push({
+      id: "ambassador",
+      tone: "pos",
+      icon: "heart",
+      label: "Opportunité",
+      title: `${ambassador.name} — ambassadeur·ice`,
+      body: `Sat. ${Math.round(ambassador.sat * 100)} ↑, historique positif. Candidat·e naturel·le pour parler de la mission en interne.`,
+      rule: "nps_implicite_élevé = référent",
+      action: "Lui demander un quote",
+    });
+  }
+
+  // Beaucoup de bascules récentes — instabilité
+  if (pivots.length >= 3) {
+    out.push({
+      id: "instability",
+      tone: "neu",
+      icon: "flag",
+      label: "Instabilité",
+      title: `${pivots.length} bascules détectées sur la période`,
+      body: "Fréquence de réorientation élevée. Vérifier si le périmètre initial est réaliste ou si un cadrage plus fort est nécessaire.",
+      rule: "pivots >= 3 = revoir cadrage",
+      action: "Briefer le sponsor",
+    });
+  }
+
+  return out;
+}
+
 export async function getPulseData(missionId: string): Promise<PulseData> {
   const [stakeholders, { events, pivots }] = await Promise.all([
     computeStakeholders(missionId),
@@ -334,5 +498,20 @@ export async function getPulseData(missionId: string): Promise<PulseData> {
   ]);
   const windowStart = events[0]?.t ?? new Date().toISOString();
   const windowEnd = events[events.length - 1]?.t ?? new Date().toISOString();
-  return { stakeholders, events, pivots, windowStart, windowEnd };
+  const signalMix = computeSignalMix(events);
+  const moodSeries = computeMoodSeries(events);
+  const { score: moodScore, delta: moodDelta } = computeMoodScore(stakeholders);
+  const insights = computeInsights(stakeholders, pivots);
+  return {
+    stakeholders,
+    events,
+    pivots,
+    signalMix,
+    moodScore,
+    moodDelta,
+    moodSeries,
+    insights,
+    windowStart,
+    windowEnd,
+  };
 }

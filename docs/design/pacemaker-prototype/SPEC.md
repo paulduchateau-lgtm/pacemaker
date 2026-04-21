@@ -177,13 +177,35 @@ Entités dans `data.js` (enrichissent le modèle actuel) :
 
 ## 8. Fichiers sources disponibles dans ce dossier
 
-- `Pacemaker Prototype.html` (13.9 KB) — HTML d'intégration (scripts Babel + React UMD), capturé via curl avec token signé
-- `data.js` (~8 KB, re-formaté manuellement) — toutes les seed-data du prototype
-- **Non récupérés** (bloqués par filtres extension Chrome + download multi-fichier) :
-  - `styles.css` (52 KB) — partiellement lu via screenshot (tokens `:root` dans section 3)
-  - `data-adapter.js` (7.5 KB) — bridge de nommage
-  - `shell.jsx` (14.7 KB) — sidebar, copilote, breadcrumbs
-  - `pages-core.jsx` (51 KB) — Briefing, Plan, Pulse, Décisions, Inputs
-  - `pages-extra.jsx` (40 KB) — Incohérences, Livrables, Sources, Inbox
+Tous les fichiers du prototype Claude Design sont présents (Paul les a déposés
+manuellement depuis `~/Downloads/Pacemaker/`) :
 
-Si besoin de ces fichiers pour une implémentation fidèle : Paul doit les exporter manuellement depuis Claude Design (bouton "Share" / export zip) et les déposer ici.
+- `Pacemaker Prototype.html` (13.9 KB) — shell HTML intégrant Babel + React UMD
+- `styles.css` (52.9 KB) — tokens complets + classes utility + pages styles
+- `data.js` (22.2 KB) — seed-data (MISSION, WEEKS, TASKS, INCOHERENCES, DECISIONS, RECALIBRATIONS, LIVRABLES, RISKS, SOURCES, PULSE_EVENTS, ICONS)
+- `data-adapter.js` (7.5 KB) — bridge de nommage : expose `INCOHS`, reshape `DECISIONS`/`LIVRABLES`/`SOURCES` avec les champs attendus par les pages
+- `shell.jsx` (14.8 KB) — `Icon`, `Sidebar`, `TopBar`, `Badge`, `Confidence`, `SourceIcon`, `CopilotConsole`, `BrandMark`
+- `pages-core.jsx` (51.4 KB) — `BriefingPage`, `PlanPage`, `PulsePage` (incluant `MoodHero`, `SignalBars`, `StakeholderMap`, `SignalStream`, `InsightTile`, `SatisfactionChart`, `TiltTimeline`)
+- `pages-extra.jsx` (40.3 KB) — `DecisionsPage`, `IncohPage`, `LivrablesPage`, `SourcesPage`, `InboxPage`, `ReportsPage`
+
+## 9. État d'implémentation dans le repo
+
+✅ **Page Pulse** (`/admin/missions/[slug]/pulse`) — feature novelle portée fidèlement :
+- `MoodHero` (gauge demi-cercle + SignalBars 14j + BasculesMini) — [src/components/pulse/MoodHero.tsx](../../../src/components/pulse/MoodHero.tsx)
+- `StakeholderMap` orbital (équipe au centre + couronne de stakeholders, taille = interactions, couleur = satisfaction) — [StakeholderMap.tsx](../../../src/components/pulse/StakeholderMap.tsx)
+- `SignalMix` (barre stackée par nature de signal) — [SignalMix.tsx](../../../src/components/pulse/SignalMix.tsx)
+- `InsightTile` (règles auto-détectées : sponsor silence, friction métier, ambassadeur, instabilité) — [InsightTile.tsx](../../../src/components/pulse/InsightTile.tsx)
+- `StakeholderCard`, `PivotTimeline`, `EventStream` (déjà créés)
+- Lib d'agrégation : [lib/pulse.ts](../../../src/lib/pulse.ts) avec `computeMoodScore`, `computeMoodSeries`, `computeSignalMix`, `computeInsights`
+- API : `GET /api/pulse` mission-scoped
+
+⏸ **Autres pages non portées** (scope futur) :
+- Briefing adaptatif (Mission Home) — `StatTile`, `ArbitrageRow`, `AgendaRow`, `TimelineEvent`
+- Plan vivant avec `PhaseRoadmap` (Gantt timeline) + `PhaseRow` expandable
+- Décisions timeline verticale avec `DecisionNode` (alternatives + impacts + contradictions)
+- Livrables avec preview éditeur + citations
+- Sources avec chunks RAG + traçabilité
+- Inbox (capture WhatsApp/Plaud)
+- Temps libéré (breakdown par type d'absorption)
+
+⏸ **Shell 3 colonnes** (sidebar + main + copilote console) non porté — la nav actuelle de Pacemaker (TopBar + BottomBar) est conservée.
