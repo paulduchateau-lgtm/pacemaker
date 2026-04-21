@@ -270,7 +270,7 @@ input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
   box-shadow: 0 0 0 2px var(--paper);
 }
 
-.page { padding: 28px 40px 80px; max-width: 1040px; width: 100%; margin: 0 auto; }
+.page { padding: 28px 40px 80px; width: 100%; margin: 0 auto; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; gap: 20px; }
 .page-title {
   font-family: var(--sans);

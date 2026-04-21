@@ -43,31 +43,39 @@ export default function SourcesV2Page() {
 
   const load = useCallback(async () => {
     if (!slug) return;
-    const res = await fetch("/api/docs/search?query=&limit=50", {
+    // Route /api/docs retourne TOUS les documents de la mission (pas de query
+    // nécessaire). /api/docs/search nécessiterait une query ≥ 3 chars.
+    const res = await fetch("/api/docs", {
       headers: { "x-mission-slug": slug },
     }).catch(() => null);
 
-    // fallback : liste globale depuis table documents via endpoint générique
-    if (!res) {
+    if (!res || !res.ok) {
       setSources([]);
       return;
     }
 
-    const json = await res.json().catch(() => ({ documents: [] }));
-    const docs = (json.documents ?? json.results ?? []) as Array<
+    const json = await res.json().catch(() => []);
+    const docs = (Array.isArray(json) ? json : json.documents ?? []) as Array<
       Record<string, unknown>
     >;
     const mapped: Source[] = docs.map((d) => {
-      const kind = String(d.type ?? d.source ?? "doc");
+      const type = String(d.type ?? "doc");
+      const source = String(d.source ?? "manual");
+      // Kind utilisé pour l'icône + le filtre pill. On privilégie le type
+      // métier (plaud, vision, cr) puis fallback sur source (upload, manual).
+      let kind = type;
+      if (type === "plaud" || source === "plaud") kind = "plaud";
+      else if (type === "photo" || source === "vision") kind = "vision";
+      else if (type === "cr" || type === "note" || type === "spec") kind = "doc";
       const uploaded = String(d.createdAt ?? d.created_at ?? new Date().toISOString());
       return {
         id: String(d.id),
-        kind: kind === "plaud" ? "plaud" : kind === "cr" ? "doc" : kind,
+        kind,
         title: String(d.title ?? "Source"),
-        fmt: String(d.source ?? d.fmt ?? kind).toUpperCase(),
+        fmt: type.toUpperCase(),
         uploaded,
         freshness: freshnessFrom(uploaded),
-        used: Number(d.used ?? 0),
+        used: 0, // pas de compteur d'usage en DB pour l'instant
         extracts: [],
         stale: false,
         inconsistency: false,
