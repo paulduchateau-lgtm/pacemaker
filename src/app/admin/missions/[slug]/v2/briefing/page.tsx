@@ -5,7 +5,6 @@ import { query } from "@/lib/db";
 import Icon from "@/components/prototype/Icon";
 import StatTile from "@/components/prototype/StatTile";
 import SectionHead from "@/components/prototype/SectionHead";
-import Badge from "@/components/prototype/Badge";
 import Confidence from "@/components/prototype/Confidence";
 import SourceIcon from "@/components/prototype/SourceIcon";
 

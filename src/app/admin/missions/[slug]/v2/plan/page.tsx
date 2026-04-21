@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { getMissionBySlug } from "@/lib/mission";
 import { query } from "@/lib/db";
 import { getCurrentWeek } from "@/lib/current-week";
-import Icon from "@/components/prototype/Icon";
 import Badge from "@/components/prototype/Badge";
 import Confidence from "@/components/prototype/Confidence";
 import PhaseRoadmap, { type RoadmapWeek } from "@/components/prototype/PhaseRoadmap";
