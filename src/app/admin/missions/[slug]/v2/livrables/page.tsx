@@ -122,7 +122,7 @@ export default function LivrablesV2Page() {
 
           <div className="liv-editor">
             {open ? (
-              <LivrablePreview l={open} />
+              <LivrablePreview l={open} slug={slug} />
             ) : (
               <div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>
                 Sélectionne un livrable pour le prévisualiser.
@@ -135,7 +135,40 @@ export default function LivrablesV2Page() {
   );
 }
 
-function LivrablePreview({ l }: { l: LivrableRow }) {
+interface Citation {
+  chunkId: string;
+  docId: string;
+  docTitle: string;
+  content: string;
+  similarity: number;
+}
+
+function LivrablePreview({ l, slug }: { l: LivrableRow; slug: string }) {
+  const [citations, setCitations] = useState<Citation[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setCitations(null);
+      try {
+        const res = await fetch(`/api/livrables/${l.id}/citations`, {
+          headers: { "x-mission-slug": slug },
+        });
+        if (!res.ok) {
+          if (!cancelled) setCitations([]);
+          return;
+        }
+        const json = await res.json();
+        if (!cancelled) setCitations(json.citations ?? []);
+      } catch {
+        if (!cancelled) setCitations([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [l.id, slug]);
+
   const tone: "" | "green" | "amber" | "soft" =
     l.status === "validé" ? "green" : l.status === "en cours" ? "amber" : l.status === "planifié" ? "soft" : "";
 
@@ -160,6 +193,20 @@ function LivrablePreview({ l }: { l: LivrableRow }) {
         </div>
       </div>
 
+      {citations && citations.length > 0 && (
+        <div className="liv-ai-banner">
+          <Icon name="sparkle" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 500 }}>
+              {citations.length} source{citations.length > 1 ? "s" : ""} RAG pertinente{citations.length > 1 ? "s" : ""}
+            </div>
+            <div className="mono muted" style={{ marginTop: 2 }}>
+              Top chunks sémantiquement proches du titre de ce livrable
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="liv-doc-body">
         <h1 className="liv-doc-title">{l.label}</h1>
         <div className="liv-doc-subtitle">Document {l.fmt}</div>
@@ -170,10 +217,65 @@ function LivrablePreview({ l }: { l: LivrableRow }) {
           <p className="liv-doc-p">
             Livrable en statut <strong>{l.status}</strong>
             {l.delivered ? `, livré le ${l.delivered.slice(0, 10)}.` : "."}
-            {" "}Le contenu détaillé (citations + sections enrichies) sera
-            accessible via le pipeline de génération pré-structurée dans une
-            itération ultérieure.
+            {" "}Le pipeline de génération pré-structurée avec insertion des
+            citations inline viendra dans une itération suivante.
           </p>
+        </div>
+
+        <div className="liv-doc-section">
+          <h2 className="liv-doc-h2">
+            Sources disponibles
+            {citations === null && <span className="liv-section-badge">chargement</span>}
+            {citations !== null && (
+              <span className="liv-section-badge">{citations.length}</span>
+            )}
+          </h2>
+          {citations === null && (
+            <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
+              Recherche dans l&apos;index RAG…
+            </div>
+          )}
+          {citations !== null && citations.length === 0 && (
+            <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
+              Aucune source indexée ne colle au titre de ce livrable. Indexe des
+              documents (CR, specs) via /docs pour enrichir.
+            </div>
+          )}
+          {citations !== null &&
+            citations.map((c) => (
+              <div
+                key={c.chunkId}
+                style={{
+                  padding: "10px 12px",
+                  background: "var(--paper-sunk)",
+                  border: "1px solid var(--border-soft)",
+                  borderRadius: 6,
+                  marginTop: 8,
+                }}
+              >
+                <div className="row" style={{ gap: 8, marginBottom: 4 }}>
+                  <span className="mono" style={{ color: "var(--ink)" }}>
+                    {c.docTitle}
+                  </span>
+                  <span
+                    className="mono"
+                    style={{ marginLeft: "auto", color: c.similarity > 0.7 ? "var(--green-deep)" : "var(--muted)" }}
+                  >
+                    similarité {c.similarity.toFixed(2)}
+                  </span>
+                </div>
+                <p
+                  style={{
+                    fontSize: 12.5,
+                    color: "var(--ink-dim)",
+                    margin: 0,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {c.content}
+                </p>
+              </div>
+            ))}
         </div>
       </div>
     </div>
