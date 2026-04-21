@@ -249,12 +249,6 @@ export interface Rule {
   createdAt: string;
 }
 
-export interface ProjectState {
-  currentWeek: number;
-  jh_consommes: number;
-  missionStartDate: string | null;
-}
-
 // ─── Décisions enrichies (chantier 2) ───────────────────
 
 export type DecisionStatus = "proposée" | "actée" | "révisée" | "annulée";

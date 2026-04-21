@@ -28,36 +28,20 @@ function buildMissionBlock(missionContext: string): string {
   return `=== CONTEXTE MISSION ===\n${missionContext.trim()}\n=== FIN CONTEXTE ===\n\n`;
 }
 
-export function buildGenerateLivrablesPrompt(
-  task: TaskForLivrables,
-  week: WeekContext,
-  ragContext: string = "",
-  rules: Rule[] = [],
-  existingLivrables: string[] = [],
-  missionContext: string = ""
-): string {
-  const existingBlock = existingLivrables.length > 0
-    ? `\nLIVRABLES DÉJÀ EXISTANTS DANS LA MISSION (ne pas les reproduire) :\n${existingLivrables.map((l) => `- ${l}`).join("\n")}\n`
-    : "";
+function buildGenerateLivrablesSystem(missionContext: string): string {
+  return `Tu es un assistant de pilotage de mission de consulting.
 
-  return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un assistant de pilotage de mission de consulting.
-${ragContext}
-Contexte : Semaine ${week.weekId} — "${week.title}" (phase ${week.phase})
+${buildMissionBlock(missionContext)}Tu proposes les livrables nécessaires pour réaliser une tâche.
 
-Tâche à analyser :
-- Libellé : ${task.label}
-- Description : ${task.description || "Aucune description"}
-- Responsable : ${task.owner}
-- Priorité : ${task.priority}
-${existingBlock}
 CONSIGNES IMPORTANTES :
 - Propose uniquement les livrables strictement nécessaires pour cette tâche (1 à 3 maximum).
 - Certaines tâches ne nécessitent aucun livrable formel — dans ce cas, retourne une liste vide.
-- Ne duplique jamais un livrable déjà existant dans la mission (voir liste ci-dessus).
+- Ne duplique jamais un livrable déjà existant dans la mission.
 - Le plan d'action doit être synthétique : 2 à 4 étapes clés, pas de micro-détail.
 
 Pour chaque livrable, indique le titre, une description courte, et le format attendu
-(ex: "Document Word", "Fichier Power BI .pbix", "Email", "Présentation PPT", "Tableau Excel", "Capture écran", etc.)
+(ex: "Document Word", "Fichier Power BI .pbix", "Email", "Présentation PPT",
+"Tableau Excel", "Capture écran", etc.)
 
 Réponds UNIQUEMENT avec du JSON :
 {
@@ -66,6 +50,32 @@ Réponds UNIQUEMENT avec du JSON :
   ],
   "plan_action": "Étapes clés pour réaliser cette tâche (2-4 étapes)"
 }`;
+}
+
+export function buildGenerateLivrablesPrompt(
+  task: TaskForLivrables,
+  week: WeekContext,
+  ragContext: string = "",
+  rules: Rule[] = [],
+  existingLivrables: string[] = [],
+  missionContext: string = ""
+): { system: string; user: string } {
+  const existingBlock = existingLivrables.length > 0
+    ? `\nLIVRABLES DÉJÀ EXISTANTS DANS LA MISSION (ne pas les reproduire) :\n${existingLivrables.map((l) => `- ${l}`).join("\n")}\n`
+    : "";
+
+  const user = `${buildRulesBlock(rules)}${ragContext}
+Contexte : Semaine ${week.weekId} — "${week.title}" (phase ${week.phase})
+
+Tâche à analyser :
+- Libellé : ${task.label}
+- Description : ${task.description || "Aucune description"}
+- Responsable : ${task.owner}
+- Priorité : ${task.priority}
+${existingBlock}
+Propose les livrables selon le schéma JSON défini.`;
+
+  return { system: buildGenerateLivrablesSystem(missionContext), user };
 }
 
 function buildGenerateTasksSystem(missionContext: string): string {
@@ -382,7 +392,7 @@ export function buildCreateLivrablePrompt(
   rules: Rule[] = [],
   missionContext: string = "",
   themeHints: string = ""
-): string {
+): { system: string; user: string } {
   const activeRisks = ctx.risks.filter((r) => r.status === "actif");
   const weekTasks = ctx.tasks.filter((t) => t.weekId === week.id);
   const fmt = livrable.format.toLowerCase();
@@ -390,32 +400,9 @@ export function buildCreateLivrablePrompt(
   const isPptx = /(ppt|présentation|presentation|slide|diapo|deck)/.test(fmt);
   const targetFormat = isXlsx ? "xlsx" : isPptx ? "pptx" : "docx";
 
-  return `${buildRulesBlock(rules)}${buildMissionBlock(missionContext)}Tu es un consultant senior en charge de la rédaction d'un livrable.
-${ragContext}
+  const system = `Tu es un consultant senior en charge de la rédaction d'un livrable.
 
-CONTEXTE PROJET :
-- Semaine courante : S${ctx.currentWeek}
-- Phase : ${week.phase} — "${week.title}"
-
-RISQUES ACTIFS :
-${activeRisks.length > 0 ? activeRisks.map((r) => `- ${r.label} (impact: ${r.impact}/5, proba: ${r.probability}/5) → ${r.mitigation}`).join("\n") : "Aucun risque actif."}
-
-TÂCHES SEMAINE ${week.id} :
-${weekTasks.length > 0 ? weekTasks.map((t) => `- [${t.status}] ${t.label} (${t.owner})`).join("\n") : "Aucune tâche."}
-
-LIVRABLES PRÉVUS SEMAINE ${week.id} :
-${week.livrables.length > 0 ? week.livrables.map((l) => `- ${l}`).join("\n") : "Aucun livrable planifié."}
-
----
-
-LIVRABLE À CRÉER :
-- Titre : ${livrable.titre}
-- Description : ${livrable.description}
-- Format cible : ${livrable.format} (rendu final : ${targetFormat})
-- Tâche source : ${task.label}
-${task.description ? `- Détail tâche : ${task.description}` : ""}
-
-${themeHints ? `${themeHints}\n\n` : ""}FORMAT DE SORTIE — STRICT :
+${buildMissionBlock(missionContext)}FORMAT DE SORTIE — STRICT :
 Réponds UNIQUEMENT avec un objet JSON valide conforme au schéma LivrablePayload ci-dessous.
 Aucun texte avant, aucun texte après, aucun bloc markdown \`\`\`.
 
@@ -424,7 +411,7 @@ SCHÉMA (TypeScript) :
   "title": string,                 // titre du livrable
   "subtitle"?: string,
   "docType"?: "CR" | "Annexe" | "Deck" | "Note" | "Rapport" | string,
-  "format": "docx" | "xlsx" | "pptx",  // utilise "${targetFormat}"
+  "format": "docx" | "xlsx" | "pptx",
   "blocks": Block[]                // requis sauf si sheets fourni (xlsx)
   "sheets"?: { "name": string, "blocks": Block[] }[]  // uniquement pour xlsx multi-onglets
 }
@@ -451,9 +438,37 @@ CONSIGNES :
 - Pré-remplis avec les VRAIES données projet (risques, tâches, planning, chiffres). Pas de placeholder.
 - Commence typiquement par un bloc "cover" (toujours pour un Deck/Rapport ; optionnel pour une Note courte).
 - Structure avec des "section" level=1 pour les grandes parties, level=2 pour les sous-parties.
-${targetFormat === "xlsx" ? '- Pour un livrable Excel, préfère "sheets" avec onglets nommés (ex: "Lisez-moi", "Synthèse", "Données", "Suivi").' : ""}
-${targetFormat === "pptx" ? '- Pour une présentation, chaque "section" level=1 démarre une nouvelle slide. Garde 3-6 slides maximum.' : ""}
+- Pour un livrable Excel, préfère "sheets" avec onglets nommés.
+- Pour une présentation, chaque "section" level=1 démarre une nouvelle slide. Garde 3-6 slides maximum.
 - Termine par un "footer_legal" si une mention légale est pertinente.`;
+
+  const user = `${buildRulesBlock(rules)}${ragContext}
+
+CONTEXTE PROJET :
+- Semaine courante : S${ctx.currentWeek}
+- Phase : ${week.phase} — "${week.title}"
+
+RISQUES ACTIFS :
+${activeRisks.length > 0 ? activeRisks.map((r) => `- ${r.label} (impact: ${r.impact}/5, proba: ${r.probability}/5) → ${r.mitigation}`).join("\n") : "Aucun risque actif."}
+
+TÂCHES SEMAINE ${week.id} :
+${weekTasks.length > 0 ? weekTasks.map((t) => `- [${t.status}] ${t.label} (${t.owner})`).join("\n") : "Aucune tâche."}
+
+LIVRABLES PRÉVUS SEMAINE ${week.id} :
+${week.livrables.length > 0 ? week.livrables.map((l) => `- ${l}`).join("\n") : "Aucun livrable planifié."}
+
+---
+
+LIVRABLE À CRÉER :
+- Titre : ${livrable.titre}
+- Description : ${livrable.description}
+- Format cible : ${livrable.format} (utilise "${targetFormat}" dans le JSON)
+- Tâche source : ${task.label}
+${task.description ? `- Détail tâche : ${task.description}` : ""}
+
+${themeHints ? `${themeHints}\n\n` : ""}Rédige le livrable selon le schéma JSON défini.`;
+
+  return { system, user };
 }
 
 // ─── Plaud (chantier 5) ──────────────────────────────────────────────────

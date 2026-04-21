@@ -22,20 +22,8 @@ export interface LlmResult {
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 /**
- * Appelle le LLM et retourne UNIQUEMENT le texte (compat legacy).
- * La télémétrie tokens est maintenant disponible via `callLLMWithUsage`.
- */
-export async function callLLM(
-  prompt: string,
-  maxTokens: number = 2000,
-): Promise<string> {
-  const res = await callLLMWithUsage(prompt, maxTokens);
-  return res.text;
-}
-
-/**
  * Appelle le LLM et retourne texte + usage de tokens.
- * Utile pour les routes qui veulent logger la consommation.
+ * Tous les call sites loguent la consommation via logTokenUsage.
  */
 export async function callLLMWithUsage(
   prompt: string,

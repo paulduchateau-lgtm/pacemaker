@@ -1,24 +1,30 @@
 import type { Week } from "@/types";
 import type { StateCreator } from "zustand";
 
-export interface ProjectSlice {
+/**
+ * État-mission courant (semaine courante, planning, JH consommés, date de
+ * démarrage). Renommé de `ProjectSlice` → `MissionStateSlice` au chantier 6 :
+ * depuis le chantier 1 multi-tenant, ces données appartiennent à la mission
+ * active, pas à un "project" global.
+ */
+export interface MissionStateSlice {
   currentWeek: number;
   weeks: Week[];
   missionStartDate: string | null;
   jh_consommes: number;
-  fetchProject: () => Promise<void>;
+  fetchMissionState: () => Promise<void>;
   setCurrentWeek: (week: number) => void;
   setWeeks: (weeks: Week[]) => void;
   setMissionStartDate: (date: string) => Promise<void>;
 }
 
-export const createProjectSlice: StateCreator<ProjectSlice> = (set) => ({
+export const createMissionStateSlice: StateCreator<MissionStateSlice> = (set) => ({
   currentWeek: 1,
   weeks: [],
   missionStartDate: null,
   jh_consommes: 0,
 
-  fetchProject: async () => {
+  fetchMissionState: async () => {
     const [weeksRes, projectRes] = await Promise.all([
       fetch("/api/data/weeks"),
       fetch("/api/data/project"),

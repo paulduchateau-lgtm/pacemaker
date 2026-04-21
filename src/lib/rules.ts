@@ -21,33 +21,39 @@ export async function getRelevantRules(
     const queryEmbedding = await getEmbedding(queryText, "query");
     const embeddingBlob = `[${queryEmbedding.join(",")}]`;
 
+    // Chantier 6 : filtre similarité > 0.65 POUSSÉ DANS SQL (avant,
+    // ORDER BY distance + LIMIT N puis filter côté JS → si les N plus proches
+    // dépassent le seuil, on recevait 0 règle alors qu'une 6e aurait pu
+    // passer. Maintenant WHERE embauche le filtre avant LIMIT).
+    // Seuil similarité > 0.65 ⇔ distance < 0.35.
+    const MAX_DISTANCE = 0.35;
     const sql = opts.missionId
       ? `SELECT id, rule_learned, generation_type, applied_count, created_at,
                 vector_distance_cos(rule_embedding, vector(?)) as distance
          FROM corrections
          WHERE generation_type = ? AND status = 'active' AND mission_id = ?
+           AND vector_distance_cos(rule_embedding, vector(?)) < ?
          ORDER BY distance ASC
          LIMIT ?`
       : `SELECT id, rule_learned, generation_type, applied_count, created_at,
                 vector_distance_cos(rule_embedding, vector(?)) as distance
          FROM corrections
          WHERE generation_type = ? AND status = 'active'
+           AND vector_distance_cos(rule_embedding, vector(?)) < ?
          ORDER BY distance ASC
          LIMIT ?`;
     const args = opts.missionId
-      ? [embeddingBlob, generationType, opts.missionId, limit]
-      : [embeddingBlob, generationType, limit];
+      ? [embeddingBlob, generationType, opts.missionId, embeddingBlob, MAX_DISTANCE, limit]
+      : [embeddingBlob, generationType, embeddingBlob, MAX_DISTANCE, limit];
     const rows = await query(sql, args);
 
-    return rows
-      .filter((r) => (1 - (r.distance as number)) > 0.65)
-      .map((r) => ({
-        id: r.id as string,
-        type: r.generation_type as GenerationType,
-        text: r.rule_learned as string,
-        appliedCount: r.applied_count as number,
-        createdAt: r.created_at as string,
-      }));
+    return rows.map((r) => ({
+      id: r.id as string,
+      type: r.generation_type as GenerationType,
+      text: r.rule_learned as string,
+      appliedCount: r.applied_count as number,
+      createdAt: r.created_at as string,
+    }));
   } catch {
     // Rules are optional — if embeddings fail, skip
     return [];

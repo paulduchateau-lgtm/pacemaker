@@ -20,7 +20,7 @@ export default function AdminBacklog() {
     weeks,
     tasks,
     currentWeek,
-    fetchProject,
+    fetchMissionState,
     fetchTasks,
     fetchLivrables,
   } = useStore();
@@ -28,10 +28,10 @@ export default function AdminBacklog() {
   const [generating, setGenerating] = useState<number | null>(null);
 
   useEffect(() => {
-    Promise.all([fetchProject(), fetchTasks(), fetchLivrables()]).then(() =>
+    Promise.all([fetchMissionState(), fetchTasks(), fetchLivrables()]).then(() =>
       setLoaded(true)
     );
-  }, [fetchProject, fetchTasks, fetchLivrables]);
+  }, [fetchMissionState, fetchTasks, fetchLivrables]);
 
   const stats = getAllTaskStats(tasks);
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callLLMWithUsage } from "@/lib/llm";
+import { callLLMCached, callLLMWithUsage } from "@/lib/llm";
 import { execute } from "@/lib/db";
 import { put } from "@vercel/blob";
 import { buildCreateLivrablePrompt } from "@/lib/prompts";
@@ -60,13 +60,16 @@ export async function POST(req: NextRequest) {
       missionContext,
       theme.promptHints,
     );
-    const prompt = customPrompt || defaultPrompt;
 
     console.log(
       `[create-livrable] start taskId=${taskId} mission=${mission.slug} theme=${resolvedThemeId} format=${format}`,
     );
     const t0 = Date.now();
-    const { text: aiContent, usage, model } = await callLLMWithUsage(prompt, 4000);
+    // customPrompt (override user) → pas de cache ; sinon prompt caching actif
+    // sur le bloc système (rôle + contexte mission + schéma + consignes).
+    const { text: aiContent, usage, model } = customPrompt
+      ? await callLLMWithUsage(customPrompt, 4000)
+      : await callLLMCached(defaultPrompt.system, defaultPrompt.user, 4000);
     console.log(
       `[create-livrable] llm#1 done in ${Date.now() - t0}ms, ${aiContent.length} chars`,
     );
@@ -122,7 +125,9 @@ export async function POST(req: NextRequest) {
     const generationId = await trackGeneration({
       generationType: "livrables",
       context: { taskId, titre, format, themeId: resolvedThemeId },
-      prompt,
+      prompt: customPrompt
+        ? customPrompt
+        : `=== SYSTEM ===\n${defaultPrompt.system}\n\n=== USER ===\n${defaultPrompt.user}`,
       rawOutput: aiContent,
       appliedRuleIds: [],
       weekId: ctx.task.weekId,

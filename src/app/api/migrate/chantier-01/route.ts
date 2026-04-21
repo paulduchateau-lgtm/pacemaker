@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { execute, query } from "@/lib/db";
-import { getMissionContext } from "@/lib/mission-context";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +15,14 @@ const MISSION_LABEL = "Agirc-Arrco — DAS Power BI";
 const MISSION_CLIENT = "Agirc-Arrco";
 const MISSION_THEME = "agirc-arrco";
 const DEFAULT_START_DATE = "2026-04-16";
+
+// Chantier 6 : contexte seed local à cette migration (au lieu d'un fallback
+// global DEFAULT_MISSION_CONTEXT qui fuitait en multi-tenant). S'applique
+// uniquement si la mission agirc-arrco-2026 n'est pas encore en DB.
+const AGIRC_ARRCO_CONTEXT = `Mission de transformation BI Power BI pour la Direction de l'Action Sociale de l'Agirc-Arrco.
+Durée : 7 semaines effectives.
+Client : Agirc-Arrco, Direction de l'Action Sociale (DAS).
+Contacts : Benoît Baret, Nathalie Lazardeux.`;
 
 const TABLES_TO_SCOPE = [
   "weeks",
@@ -86,7 +93,6 @@ export async function POST() {
     const startDate =
       (sdRows[0]?.value as string | undefined)?.trim() || DEFAULT_START_DATE;
     const endDate = addWeeksIso(startDate, 7);
-    const context = await getMissionContext();
     const insertResult = await execute(
       `INSERT OR IGNORE INTO missions
          (id, slug, label, client, start_date, end_date, theme, context)
@@ -99,7 +105,7 @@ export async function POST() {
         startDate,
         endDate,
         MISSION_THEME,
-        context,
+        AGIRC_ARRCO_CONTEXT,
       ],
     );
     log.push(

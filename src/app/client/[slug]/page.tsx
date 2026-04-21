@@ -20,7 +20,7 @@ export default function ClientDashboard() {
     risks,
     livrables,
     currentWeek,
-    fetchProject,
+    fetchMissionState,
     fetchTasks,
     fetchRisks,
     fetchLivrables,
@@ -29,12 +29,12 @@ export default function ClientDashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetchProject(),
+      fetchMissionState(),
       fetchTasks(),
       fetchRisks(),
       fetchLivrables(),
     ]).then(() => setLoaded(true));
-  }, [fetchProject, fetchTasks, fetchRisks, fetchLivrables]);
+  }, [fetchMissionState, fetchTasks, fetchRisks, fetchLivrables]);
 
   if (!loaded) {
     return (

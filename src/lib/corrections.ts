@@ -1,5 +1,5 @@
 import { query, execute } from "./db";
-import { callLLM, parseJSON } from "./llm";
+import { callLLMWithUsage, parseJSON } from "./llm";
 import { getEmbedding } from "./embeddings";
 import { logTokenUsage } from "./token-usage";
 import type { GenerationType } from "@/types";
@@ -106,7 +106,23 @@ Réponds UNIQUEMENT en JSON sans backticks :
   "rule_learned": "..."
 }`;
 
-  const result = await callLLM(analysisPrompt, 500);
+  const { text: result, usage, model } = await callLLMWithUsage(
+    analysisPrompt,
+    500,
+  );
+
+  // Chantier 6 : loguer la consommation de tokens comme les autres call sites.
+  if (missionId) {
+    await logTokenUsage({
+      missionId,
+      generationId,
+      route: "corrections/extract-rule",
+      model,
+      usage,
+      triggeredBy: "user",
+    });
+  }
+
   const { diff_summary, rule_learned } = parseJSON<{
     diff_summary: string;
     rule_learned: string;

@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const filename = `capture-${Date.now()}.jpg`;
     const blobUrl = await uploadImage(buffer, filename);
 
-    const extraction = await extractFromImage(blobUrl);
+    const extraction = await extractFromImage(blobUrl, { missionId: mission.id });
 
     const { trackGeneration } = await import("@/lib/corrections");
     const generationId = await trackGeneration({

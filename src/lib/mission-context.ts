@@ -2,15 +2,14 @@ import { execute, query } from "./db";
 import { DEFAULT_MISSION_SLUG } from "./mission";
 
 /**
- * Contexte mission injecté en tête de tous les prompts LLM (remplace les infos
- * hardcodées). Chantier 1 : source de vérité = `missions.context` (scopé par
- * mission_id). Fallback DEFAULT_MISSION_CONTEXT si la mission n'a pas encore
- * de contexte personnalisé.
+ * Contexte mission injecté en tête de tous les prompts LLM. Source de vérité :
+ * colonne `missions.context` (scopée par mission_id). Si la mission n'a pas
+ * encore de contexte renseigné, le fallback est une chaîne vide — le LLM se
+ * débrouille avec les infos dérivées du plan (nom mission, phases, semaines,
+ * décisions). Chantier 6 : suppression du fallback Agirc-Arrco hardcodé qui
+ * fuitait le contexte d'une mission dans les autres en multi-tenant.
  */
-export const DEFAULT_MISSION_CONTEXT = `Mission de transformation BI Power BI pour la Direction de l'Action Sociale de l'Agirc-Arrco.
-Durée : 7 semaines effectives.
-Client : Agirc-Arrco, Direction de l'Action Sociale (DAS).
-Contacts : Benoît Baret, Nathalie Lazardeux.`;
+export const DEFAULT_MISSION_CONTEXT = "";
 
 async function getContextForMissionId(missionId: string): Promise<string | null> {
   const rows = await query(

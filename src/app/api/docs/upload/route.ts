@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       // For images, use Vision API to extract text
       try {
         const { extractFromImage } = await import("@/lib/vision");
-        const extraction = await extractFromImage(blob.url);
+        const extraction = await extractFromImage(blob.url, { missionId: mission.id });
         textContent = extraction.ocr_text || extraction.summary || "";
       } catch {
         textContent = `[Image: ${file.name}]`;

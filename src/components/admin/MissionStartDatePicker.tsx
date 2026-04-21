@@ -10,7 +10,7 @@ export default function MissionStartDatePicker() {
     missionStartDate,
     setMissionStartDate,
     initializeWeekDates,
-    fetchProject,
+    fetchMissionState,
     fetchLivrables,
   } = useStore();
   const [editing, setEditing] = useState(false);
@@ -23,7 +23,7 @@ export default function MissionStartDatePicker() {
     try {
       await setMissionStartDate(date);
       await initializeWeekDates(date);
-      await Promise.all([fetchProject(), fetchLivrables()]);
+      await Promise.all([fetchMissionState(), fetchLivrables()]);
       setEditing(false);
     } catch {
       /* ignore */

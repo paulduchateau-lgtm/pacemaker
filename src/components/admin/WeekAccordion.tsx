@@ -26,7 +26,7 @@ export default function WeekAccordion({
 }: WeekAccordionProps) {
   const [open, setOpen] = useState(isCurrent);
   const [dateModal, setDateModal] = useState(false);
-  const { fetchProject, fetchLivrables } = useStore();
+  const { fetchMissionState, fetchLivrables } = useStore();
   const stats = getTaskStats(tasks);
   const phaseColor = PHASE_COLORS[week.phase];
 
@@ -38,7 +38,7 @@ export default function WeekAccordion({
 
   const handleDateSaved = async () => {
     setDateModal(false);
-    await Promise.all([fetchProject(), fetchLivrables()]);
+    await Promise.all([fetchMissionState(), fetchLivrables()]);
   };
 
   return (

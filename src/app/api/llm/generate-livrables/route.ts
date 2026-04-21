@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callLLMWithUsage, parseJSON } from "@/lib/llm";
+import { callLLMCached, parseJSON } from "@/lib/llm";
 import { query, execute } from "@/lib/db";
 import { buildGenerateLivrablesPrompt } from "@/lib/prompts";
 import { resolveActiveMission } from "@/lib/mission";
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     );
     const { getMissionContext } = await import("@/lib/mission-context");
     const missionContext = await getMissionContext({ missionId: mission.id });
-    const prompt = buildGenerateLivrablesPrompt(
+    const { system, user } = buildGenerateLivrablesPrompt(
       {
         label: task.label as string,
         description: (task.description as string) || "",
@@ -90,12 +90,12 @@ export async function POST(req: NextRequest) {
       missionContext,
     );
 
-    const { text: result, usage, model } = await callLLMWithUsage(prompt, 2000);
+    const { text: result, usage, model } = await callLLMCached(system, user, 2000);
 
     const generationId = await trackGeneration({
       generationType: "livrables",
       context: { taskId, weekId: week.id as number },
-      prompt,
+      prompt: `=== SYSTEM ===\n${system}\n\n=== USER ===\n${user}`,
       rawOutput: result,
       appliedRuleIds: rules.map((r) => r.id),
       weekId: week.id as number,
