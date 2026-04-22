@@ -6,6 +6,7 @@ import Badge from "@/components/prototype/Badge";
 import Confidence from "@/components/prototype/Confidence";
 import PhaseRoadmap, { type RoadmapWeek } from "@/components/prototype/PhaseRoadmap";
 import GenerateTasksButton from "@/components/prototype/GenerateTasksButton";
+import TaskCheckbox from "@/components/prototype/TaskCheckbox";
 
 export const dynamic = "force-dynamic";
 
@@ -147,14 +148,6 @@ export default async function PlanPage({
                 </div>
               )}
               {tasks.map((t, i) => {
-                const sc =
-                  t.status === "à faire"
-                    ? "var(--muted)"
-                    : t.status === "en cours"
-                    ? "var(--sky)"
-                    : t.status === "bloqué"
-                    ? "var(--alert)"
-                    : "var(--green-deep)";
                 const srcLabel =
                   t.source === "llm"
                     ? "IA"
@@ -177,18 +170,17 @@ export default async function PlanPage({
                       gap: 12,
                     }}
                   >
+                    <TaskCheckbox taskId={t.id} slug={slug} initialStatus={t.status} />
                     <span
-                      aria-hidden
                       style={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: 4,
-                        border: `1.5px solid ${sc}`,
-                        flexShrink: 0,
-                        background: t.status === "fait" ? sc : "transparent",
+                        flex: 1,
+                        fontSize: 13,
+                        textDecoration: t.status === "fait" ? "line-through" : "none",
+                        color: t.status === "fait" ? "var(--muted)" : "var(--ink)",
                       }}
-                    />
-                    <span style={{ flex: 1, fontSize: 13 }}>{t.label}</span>
+                    >
+                      {t.label}
+                    </span>
                     {livrablesByTask.has(t.id) && (
                       <a
                         href={`/admin/missions/${slug}/v2/livrables`}
