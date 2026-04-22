@@ -5,10 +5,6 @@
  * Usage : npx tsx scripts/migrate-lot-a-seed-phases.ts
  */
 import { createClient } from "@libsql/client";
-import dotenv from "dotenv";
-import path from "path";
-
-dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 
 const PHASE_DEFS = [
   { order: 1, label: "Cadrage", color: "#A5D900", weekNums: [1] },

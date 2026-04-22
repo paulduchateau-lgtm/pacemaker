@@ -7,10 +7,6 @@
  * Usage : npx tsx scripts/migrate-lot-a-iterations-bootstrap.ts
  */
 import { createClient } from "@libsql/client";
-import dotenv from "dotenv";
-import path from "path";
-
-dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 
 function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
