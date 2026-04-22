@@ -153,7 +153,7 @@ input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 
 /* ====== Sidebar ====== */
 .sidebar {
-  background: var(--paper);
+  background: var(--paper-elevated);
   border-right: 1px solid var(--border-soft);
   display: flex; flex-direction: column;
   position: sticky; top: 0; height: 100vh;
@@ -254,13 +254,22 @@ input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 .sidebar-foot .ident .role { display: none; }
 
 /* ====== Main column ====== */
-.main {
+.main,
+.main-col {
   display: flex; flex-direction: column;
   min-width: 0;
   height: 100vh;
   overflow: hidden;
 }
-.main-body { flex: 1; overflow-y: auto; min-height: 0; }
+.main-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 28px 36px 80px;
+}
+@media (max-width: 900px) {
+  .main-body { padding: 20px 20px 60px; }
+}
 .topbar {
   display: flex; align-items: center; gap: 14px;
   padding: 10px 28px;
@@ -309,7 +318,7 @@ input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
   box-shadow: 0 0 0 2px var(--paper);
 }
 
-.page { padding: 28px 36px 80px; width: 100%; margin: 0 auto; }
+.page { width: 100%; margin: 0 auto; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; gap: 20px; }
 .page-title {
   font-family: var(--sans);
@@ -350,7 +359,7 @@ input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 
 /* ====== Cards ====== */
 .card {
-  background: var(--paper);
+  background: var(--paper-elevated);
   border: 1px solid var(--border-soft);
   border-radius: 8px;
 }
@@ -1010,7 +1019,7 @@ body.theme-dark .progress > span { background: var(--ink); }
   align-items: flex-start;
   gap: 10px;
   padding: 12px 13px;
-  background: var(--paper);
+  background: var(--paper-elevated);
   border: 1px solid var(--border-soft);
   border-radius: 10px;
   min-width: 0;
