@@ -27,7 +27,9 @@ interface Props {
     inbox?: number;
     tasks?: number;
     incoh?: number;
+    arbitrage?: number;
   };
+  arbitrageBadge?: number;
 }
 
 function BrandMark() {
@@ -49,7 +51,7 @@ function BrandMark() {
 
 const COLLAPSE_KEY = "pacemaker-sidebar5-collapsed";
 
-export default function Sidebar5({ slug, mission, counts }: Props) {
+export default function Sidebar5({ slug, mission, counts, arbitrageBadge }: Props) {
   const pathname = usePathname();
   const base = `/admin/missions/${slug}`;
   const [collapsed, setCollapsed] = useState<boolean>(false);
@@ -99,7 +101,7 @@ export default function Sidebar5({ slug, mission, counts }: Props) {
           href: `${base}/plan`,
           label: "Plan",
           icon: "plan",
-          count: counts.tasks ?? null,
+          count: (arbitrageBadge != null && arbitrageBadge > 0) ? arbitrageBadge : (counts.tasks ?? null),
         },
         {
           id: "signaux",
