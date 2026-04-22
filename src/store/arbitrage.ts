@@ -10,7 +10,7 @@ interface ArbitrageState {
   setPendingCount: (n: number) => void;
 }
 
-export const useArbitrageStore = create<ArbitrageState>((set, get) => ({
+export const useArbitrageStore = create<ArbitrageState>((set) => ({
   pendingCount: 0,
   pendingImpacts: [],
 
