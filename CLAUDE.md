@@ -121,7 +121,15 @@ mission-pilotage/
 │   │           ├── tasks/route.ts
 │   │           ├── risks/route.ts
 │   │           ├── livrables/route.ts
-│   │           └── events/route.ts
+│   │           ├── events/route.ts
+│   │           ├── phases/route.ts                        <- lot A
+│   │           ├── phases/[id]/route.ts                   <- lot A
+│   │           ├── milestones/route.ts                    <- lot A
+│   │           ├── milestones/[id]/route.ts               <- lot A
+│   │           ├── success-criteria/route.ts              <- lot A
+│   │           ├── success-criteria/[id]/route.ts         <- lot A
+│   │           ├── deliverable-iterations/route.ts        <- lot A
+│   │           └── deliverable-iterations/[id]/route.ts  <- lot A
 │   ├── lib/
 │   │   ├── db.ts                    ← client Turso
 │   │   ├── llm.ts                   ← wrapper Anthropic texte
@@ -131,7 +139,12 @@ mission-pilotage/
 │   │   ├── storage-blob.ts          ← Vercel Blob
 │   │   ├── image-utils.ts           ← resize client-side
 │   │   ├── prompts.ts               ← construction prompts
-│   │   ├── computed.ts              ← calculs dérivés
+│   │   ├── computed.ts              ← calculs derives (+ fonctions plan v2)
+│   │   ├── plan.ts                  ← barrel lot A (re-exporte tout)
+│   │   ├── plan-phases.ts           ← CRUD phases
+│   │   ├── plan-milestones.ts       ← CRUD milestones
+│   │   ├── plan-criteria.ts         ← CRUD success_criteria
+│   │   ├── plan-iterations.ts       ← CRUD deliverable_iterations
 │   │   └── seed.ts                  ← init DB
 │   ├── store/
 │   │   ├── index.ts
@@ -266,6 +279,47 @@ Types détectés : decision, action, risk, kpi, schema, note.
 ## Mission multi-tenant
 
 Toute l'UI admin vit sous `/admin/missions/[slug]/...` et le dashboard client sous `/client/[slug]`. Le slug est la clef stable exposée à l'utilisateur (les ID internes `mission-...` ne fuient jamais dans les URLs).
+
+---
+
+## Entites de plan v2 (lot A)
+
+Quatre nouvelles tables introduites en **migration additive** depuis le lot A :
+
+- `phases` — phases de mission formalisees (ordre, couleur, dates planifiees vs reelles, statut)
+- `milestones` — jalons par phase avec conditions de succes
+- `success_criteria` — criteres d'evaluation d'un jalon (binary/qualitative/quantitative)
+- `deliverable_iterations` — iterations d'un livrable rattachees a une phase (permet multi-phases)
+
+**Colonnes ajoutees (nullable, migration additive) :**
+- `weeks.phase_id` — FK vers `phases.id` (double de `weeks.phase` texte pendant la transition)
+- `livrables.primary_phase_id` — phase principale du livrable
+- `livrables.type` — `'phase'|'intermediate'|'continuous'`, defaut `'intermediate'`
+- `tasks.iteration_id` — rattachement optionnel d'une tache a une iteration de livrable
+
+**Helpers serveur :**
+- `src/lib/plan-phases.ts` — CRUD phases
+- `src/lib/plan-milestones.ts` — CRUD milestones
+- `src/lib/plan-criteria.ts` — CRUD success_criteria
+- `src/lib/plan-iterations.ts` — CRUD deliverable_iterations
+- `src/lib/plan.ts` — barrel (re-exporte tout)
+
+**Routes API :**
+- `GET/POST /api/data/phases` — liste et creation de phases
+- `GET/PATCH/DELETE /api/data/phases/[id]` — detail, mise a jour, archivage
+- `GET/POST /api/data/milestones` — liste (filtrable par `?phase_id=`) et creation
+- `GET/PATCH/DELETE /api/data/milestones/[id]`
+- `GET/POST /api/data/success-criteria` — filtrable par `?milestone_id=`
+- `GET/PATCH /api/data/success-criteria/[id]`
+- `GET/POST /api/data/deliverable-iterations` — filtrable par `?deliverable_id=` ou `?phase_id=`
+- `GET/PATCH/DELETE /api/data/deliverable-iterations/[id]`
+
+**Scripts de migration :**
+- `scripts/migrate-lot-a-seed-phases.ts` — seed les 5 phases pour Agirc-Arrco
+- `scripts/migrate-lot-a-iterations-bootstrap.ts` — cree une iteration par livrable existant
+
+**Regle d'or :** `weeks.phase` (texte) et `weeks.phase_id` coexistent. Ne pas supprimer
+`weeks.phase` avant la migration nettoyage (lot A cleanup, ulterieur).
 
 ### Résolution de la mission active côté serveur
 
