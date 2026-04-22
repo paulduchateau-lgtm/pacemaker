@@ -66,9 +66,10 @@ export async function POST(req: NextRequest) {
   const mission = await resolveActiveMission(req);
   const body = await req.json();
   const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const iterationId = body.iterationId ?? null;
   await execute(
-    `INSERT INTO tasks (id, week_id, label, description, owner, priority, status, source, mission_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO tasks (id, week_id, label, description, owner, priority, status, source, mission_id, iteration_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       body.weekId,
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
       body.status || "à faire",
       body.source || "manual",
       mission.id,
+      iterationId,
     ],
   );
   const rows = await query(
@@ -133,6 +135,10 @@ export async function PATCH(req: NextRequest) {
   if (livrables_generes !== undefined) {
     updates.push("livrables_generes = ?");
     args.push(livrables_generes);
+  }
+  if (body.iterationId !== undefined) {
+    updates.push("iteration_id = ?");
+    args.push(body.iterationId ?? null);
   }
 
   if (updates.length === 0) {

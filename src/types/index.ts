@@ -363,3 +363,124 @@ export interface UpdateMissionInput {
   theme?: string;
   context?: string | null;
 }
+
+// ─── Entités de plan v2 (lot A) ────────────────────────
+
+export type PhaseStatus = 'not_started' | 'in_progress' | 'completed' | 'compromised';
+export type MilestoneStatus = 'pending' | 'reached' | 'missed' | 'postponed';
+export type CriterionStatus = 'not_evaluated' | 'met' | 'not_met' | 'partially_met';
+export type AssessmentType = 'binary' | 'qualitative' | 'quantitative';
+export type IterationStatus = 'planned' | 'in_progress' | 'blocked' | 'delivered' | 'validated';
+export type LivrableType = 'phase' | 'intermediate' | 'continuous';
+
+export interface PlanPhase {
+  id: string;
+  missionId: string;
+  orderIndex: number;
+  label: string;
+  color: string;
+  startDate: string | null;
+  endDate: string | null;
+  actualStartDate: string | null;
+  actualEndDate: string | null;
+  status: PhaseStatus;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Milestone {
+  id: string;
+  missionId: string;
+  phaseId: string;
+  label: string;
+  targetDate: string | null;
+  actualDate: string | null;
+  status: MilestoneStatus;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface SuccessCriterion {
+  id: string;
+  milestoneId: string;
+  label: string;
+  assessmentType: AssessmentType;
+  targetValue: string | null;
+  currentValue: string | null;
+  status: CriterionStatus;
+  lastAssessedAt: string | null;
+  notes: string | null;
+  orderIndex: number;
+  createdAt: string;
+}
+
+export interface DeliverableIteration {
+  id: string;
+  deliverableId: string;
+  missionId: string;
+  phaseId: string;
+  orderIndex: number;
+  labelSuffix: string | null;
+  targetMilestoneId: string | null;
+  status: IterationStatus;
+  targetDate: string | null;
+  actualDeliveryDate: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePhaseInput {
+  orderIndex: number;
+  label: string;
+  color?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  description?: string | null;
+}
+
+export interface UpdatePhaseInput {
+  label?: string;
+  color?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  actualStartDate?: string | null;
+  actualEndDate?: string | null;
+  status?: PhaseStatus;
+  description?: string | null;
+}
+
+export interface CreateMilestoneInput {
+  phaseId: string;
+  label: string;
+  targetDate?: string | null;
+  description?: string | null;
+}
+
+export interface UpdateMilestoneInput {
+  label?: string;
+  targetDate?: string | null;
+  actualDate?: string | null;
+  status?: MilestoneStatus;
+  description?: string | null;
+}
+
+export interface CreateIterationInput {
+  deliverableId: string;
+  phaseId: string;
+  orderIndex: number;
+  labelSuffix?: string | null;
+  targetMilestoneId?: string | null;
+  targetDate?: string | null;
+  notes?: string | null;
+}
+
+export interface UpdateIterationInput {
+  status?: IterationStatus;
+  targetDate?: string | null;
+  actualDeliveryDate?: string | null;
+  labelSuffix?: string | null;
+  targetMilestoneId?: string | null;
+  notes?: string | null;
+}
