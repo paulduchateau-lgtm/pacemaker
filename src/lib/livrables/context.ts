@@ -16,6 +16,7 @@ function mapWeek(r: Record<string, unknown>): Week {
   return {
     id: r.id as number,
     phase: r.phase as Week["phase"],
+    phaseId: (r.phase_id as string) || null,
     title: r.title as string,
     budget_jh: r.budget_jh as number,
     actions: JSON.parse(r.actions as string),

@@ -72,6 +72,7 @@ export interface PlaudSignal {
 export interface Week {
   id: number;
   phase: Phase;
+  phaseId: string | null;
   title: string;
   budget_jh: number;
   actions: string[];

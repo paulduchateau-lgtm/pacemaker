@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     const week: Week = {
       id: w.id as number,
       phase: w.phase as Week["phase"],
+      phaseId: (w.phase_id as string) || null,
       title: w.title as string,
       budget_jh: w.budget_jh as number,
       actions: JSON.parse(w.actions as string),

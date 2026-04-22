@@ -4,6 +4,7 @@ export const INITIAL_WEEKS: Week[] = [
   {
     id: 1,
     phase: "Cadrage",
+    phaseId: null,
     title: "Cadrage & cartographie",
     budget_jh: 4,
     actions: [
@@ -27,6 +28,7 @@ export const INITIAL_WEEKS: Week[] = [
   {
     id: 2,
     phase: "Construction socle",
+    phaseId: null,
     title: "Modèle sémantique & dataset",
     budget_jh: 5,
     actions: [
@@ -48,6 +50,7 @@ export const INITIAL_WEEKS: Week[] = [
   {
     id: 3,
     phase: "Développement",
+    phaseId: null,
     title: "Rapport R1 — Événements action sociale territoriale",
     budget_jh: 5,
     actions: [
@@ -65,6 +68,7 @@ export const INITIAL_WEEKS: Week[] = [
   {
     id: 4,
     phase: "Développement",
+    phaseId: null,
     title: "Rapports R2 (ECO) & R3 (Prévention)",
     budget_jh: 5,
     actions: [
@@ -84,6 +88,7 @@ export const INITIAL_WEEKS: Week[] = [
   {
     id: 5,
     phase: "Développement",
+    phaseId: null,
     title: "Rapports R4 (75 ans) & R5 (Habitat)",
     budget_jh: 5,
     actions: [
@@ -103,6 +108,7 @@ export const INITIAL_WEEKS: Week[] = [
   {
     id: 6,
     phase: "Stabilisation",
+    phaseId: null,
     title: "Industrialisation & gouvernance",
     budget_jh: 3,
     actions: [
@@ -124,6 +130,7 @@ export const INITIAL_WEEKS: Week[] = [
   {
     id: 7,
     phase: "Transfert",
+    phaseId: null,
     title: "Formation, documentation & clôture",
     budget_jh: 3,
     actions: [

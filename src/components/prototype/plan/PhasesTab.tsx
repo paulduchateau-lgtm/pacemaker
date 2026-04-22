@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useStore } from "@/store";
+import { getWeekTasks, getTaskStats } from "@/lib/computed";
 import Badge from "@/components/prototype/Badge";
+import ProgressBar from "@/components/ui/ProgressBar";
 import PhaseWeekSection from "./PhaseWeekSection";
 import type { PanelContent } from "@/hooks/useSidePanel";
 
-interface PhaseRow { id: string; label: string; order_index: number; color: string | null;
-  planned_start: string | null; planned_end: string | null; status: string }
-interface MilestoneRow { id: string; phase_id: string; label: string; target_date: string | null; status: string }
-interface WeekRow { id: number; title: string; phaseId: string | null }
-interface TaskRow { id: string; weekId: number; label: string; owner: string; priority: string; status: string }
-interface LivrableRow { id: string; weekId: number; label: string; status: string; primaryPhaseId: string | null }
+interface PhaseRow {
+  id: string; label: string; order_index: number; color: string | null;
+  planned_start: string | null; planned_end: string | null; status: string;
+}
+interface MilestoneRow {
+  id: string; phase_id: string; label: string; target_date: string | null; status: string;
+}
 
 interface Props { slug: string; onOpenPanel?: (content: PanelContent) => void }
 
@@ -26,13 +30,12 @@ const STATUS_TONE: Record<string, "" | "green" | "amber" | "alert" | "soft"> = {
 };
 
 export default function PhasesTab({ slug, onOpenPanel }: Props) {
+  const { weeks, tasks, currentWeek, fetchMissionState, fetchTasks, fetchLivrables } = useStore();
   const [phases, setPhases] = useState<PhaseRow[]>([]);
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
-  const [weeks, setWeeks] = useState<WeekRow[]>([]);
-  const [tasks, setTasks] = useState<TaskRow[]>([]);
-  const [livrables, setLivrables] = useState<LivrableRow[]>([]);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState<number | null>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -40,91 +43,107 @@ export default function PhasesTab({ slug, onOpenPanel }: Props) {
     Promise.all([
       fetch("/api/data/phases", { headers: h }).then(r => r.json()).catch(() => []),
       fetch("/api/data/milestones", { headers: h }).then(r => r.json()).catch(() => []),
-      fetch("/api/data/weeks", { headers: h }).then(r => r.json()).catch(() => []),
-      fetch("/api/data/tasks", { headers: h }).then(r => r.json()).catch(() => []),
-      fetch("/api/data/livrables", { headers: h }).then(r => r.json()).catch(() => []),
-    ]).then(([pj, mj, wj, tj, lj]) => {
+      fetchMissionState(),
+      fetchTasks(),
+      fetchLivrables(),
+    ]).then(([pj, mj]) => {
       const pList: PhaseRow[] = (pj.phases ?? pj ?? []).sort((a: PhaseRow, b: PhaseRow) => a.order_index - b.order_index);
       setPhases(pList);
       setMilestones(mj.milestones ?? mj ?? []);
-      setWeeks(wj ?? []);
-      setTasks(tj ?? []);
-      setLivrables(lj ?? []);
       const initOpen: Record<string, boolean> = {};
       pList.forEach((p: PhaseRow) => { initOpen[p.id] = p.status === "active" || p.status === "in_progress"; });
       setOpen(initOpen);
       setLoading(false);
     });
-  }, [slug]);
+  }, [slug, fetchMissionState, fetchTasks, fetchLivrables]);
 
-  if (loading) return <p style={{ color: "var(--muted)" }}>Chargement...</p>;
+  const handleGenerate = async (weekId: number) => {
+    setGenerating(weekId);
+    try {
+      const res = await fetch("/api/llm/generate-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weekId }),
+      });
+      if (res.ok) await fetchTasks();
+    } catch { /* noop */ }
+    setGenerating(null);
+  };
+
+  if (loading) return <p style={{ color: "var(--color-muted)" }}>Chargement...</p>;
   if (!phases.length) return (
-    <div className="card" style={{ padding: 24, color: "var(--muted)", textAlign: "center" }}>
+    <div className="card" style={{ padding: 24, color: "var(--color-muted)", textAlign: "center" }}>
       Aucune phase définie pour cette mission.
     </div>
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {phases.map(phase => {
         const isOpen = open[phase.id] ?? false;
         const phaseWeeks = weeks.filter(w => w.phaseId === phase.id);
         const phaseMilestones = milestones.filter(m => m.phase_id === phase.id);
-        const weekIds = new Set(phaseWeeks.map(w => Number(w.id)));
+        const weekIds = new Set(phaseWeeks.map(w => w.id));
         const phaseTasks = tasks.filter(t => weekIds.has(Number(t.weekId)));
-        const phaseLivr = livrables.filter(l => l.primaryPhaseId === phase.id || weekIds.has(Number(l.weekId)));
+        const phaseStats = getTaskStats(phaseTasks);
+        const color = phase.color ?? "var(--color-border)";
 
         return (
-          <div key={phase.id} className="card">
-            <div className="card-head" style={{ cursor: "pointer" }}
-              onClick={() => setOpen(s => ({ ...s, [phase.id]: !s[phase.id] }))}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
-                background: phase.color ?? "var(--border)" }} />
-              <span className="card-title" style={{ flex: 1 }}>
+          <div key={phase.id}>
+            {/* Phase header */}
+            <div
+              className="flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-4 py-3 cursor-pointer min-h-[44px]"
+              style={{ background: "var(--color-paper)", border: `1px solid ${color}`, borderRadius: "6px", borderLeftWidth: "4px" }}
+              onClick={() => setOpen(s => ({ ...s, [phase.id]: !s[phase.id] }))}
+            >
+              <span style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0, background: color }} />
+              <span className="text-sm font-medium flex-1 min-w-0" style={{ color: "var(--color-ink)" }}>
                 {phase.order_index}. {phase.label}
               </span>
-              <span className="mono muted" style={{ fontSize: 10.5 }}>
-                {phaseTasks.length}t · {phaseLivr.length}l
-              </span>
-              <Badge tone={STATUS_TONE[phase.status] ?? ""}>{phase.status}</Badge>
-              <span className="mono" style={{ color: "var(--muted)", marginLeft: 8, fontSize: 11 }}>
+              <span className="mono-label" style={{ color: "var(--color-muted)" }}>
                 {shortDate(phase.planned_start)} — {shortDate(phase.planned_end)}
               </span>
+              <div className="w-16 md:w-24">
+                <ProgressBar pct={phaseStats.pct} color={color} />
+              </div>
+              <span className="mono-label" style={{ color: "var(--color-muted)" }}>
+                {phaseStats.done}/{phaseStats.total}
+              </span>
+              <Badge tone={STATUS_TONE[phase.status] ?? ""}>{phase.status}</Badge>
               {onOpenPanel && (
-                <button className="btn btn-ghost" style={{ fontSize: 11, padding: "2px 8px", marginLeft: 8 }}
+                <button className="btn btn-ghost" style={{ fontSize: 11, padding: "2px 8px" }}
                   onClick={e => { e.stopPropagation(); onOpenPanel({ type: "phase", id: phase.id }); }}>
                   Détail
                 </button>
               )}
-              <span style={{ marginLeft: 8, color: "var(--muted)" }}>{isOpen ? "^" : "v"}</span>
+              <span style={{ color: "var(--color-muted)" }}>{isOpen ? "^" : "v"}</span>
             </div>
 
+            {/* Phase body — weeks in calendar format */}
             {isOpen && (
-              <div className="card-body" style={{ padding: "12px 16px" }}>
-                {/* Semaines avec tâches et livrables */}
+              <div style={{ paddingLeft: 12, paddingTop: 8 }}>
                 {phaseWeeks.map(w => (
                   <PhaseWeekSection
                     key={w.id}
-                    weekId={Number(w.id)}
-                    weekTitle={w.title}
-                    tasks={phaseTasks.filter(t => Number(t.weekId) === Number(w.id))}
-                    livrables={phaseLivr.filter(l => Number(l.weekId) === Number(w.id))}
+                    week={w}
+                    tasks={getWeekTasks(tasks, w.id)}
+                    phaseColor={color}
+                    isCurrent={w.id === currentWeek}
+                    onGenerate={handleGenerate}
+                    generating={generating === w.id}
                   />
                 ))}
 
                 {/* Jalons */}
                 {phaseMilestones.length > 0 && (
-                  <div style={{ marginTop: 8, paddingTop: 10, borderTop: "1px solid var(--border-soft)" }}>
-                    <div className="mono muted" style={{ fontSize: 10, letterSpacing: "0.12em", marginBottom: 6 }}>
-                      JALONS
-                    </div>
+                  <div style={{ marginTop: 4, marginBottom: 8, paddingTop: 8, borderTop: "1px solid var(--color-border)" }}>
+                    <div className="mono-label" style={{ color: "var(--color-muted)", marginBottom: 6 }}>JALONS</div>
                     {phaseMilestones.map(m => (
-                      <div key={m.id} className="row" style={{ gap: 10, padding: "6px 0",
-                        borderBottom: "1px solid var(--border-soft)" }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%",
-                          background: "var(--ink)", flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontSize: 13 }}>{m.label}</span>
-                        <span className="mono muted" style={{ fontSize: 11 }}>{shortDate(m.target_date)}</span>
+                      <div key={m.id} className="flex items-center gap-2 py-1.5"
+                        style={{ borderBottom: "1px solid var(--color-border)" }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--color-ink)", flexShrink: 0 }} />
+                        <span className="text-sm flex-1">{m.label}</span>
+                        <span className="mono-label" style={{ color: "var(--color-muted)" }}>{shortDate(m.target_date)}</span>
                         <Badge tone={STATUS_TONE[m.status] ?? ""}>{m.status}</Badge>
                         {onOpenPanel && (
                           <button className="btn btn-ghost" style={{ fontSize: 11, padding: "2px 6px" }}

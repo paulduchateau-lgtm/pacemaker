@@ -1,65 +1,102 @@
 "use client";
 
-/** Affiche les tâches et livrables d'une semaine dans le contexte d'une phase. */
+import { useState } from "react";
+import type { Week, Task } from "@/types";
+import { getTaskStats } from "@/lib/computed";
+import { formatDateShort, computeDelta } from "@/lib/dates";
+import ProgressBar from "@/components/ui/ProgressBar";
+import DeltaIndicator from "@/components/ui/DeltaIndicator";
+import Button from "@/components/ui/Button";
+import TaskRow from "@/components/admin/TaskRow";
+import AddTaskInline from "@/components/admin/AddTaskInline";
+import UploadZone from "@/components/admin/UploadZone";
 
-interface TaskRow { id: string; label: string; owner: string; priority: string; status: string }
-interface LivrableRow { id: string; label: string; status: string }
-
-const PRIORITY_COLOR: Record<string, string> = {
-  haute: "var(--alert, #D95B2F)",
-  moyenne: "var(--amber, #E8A317)",
-  basse: "var(--muted)",
-};
-
-const STATUS_ICON: Record<string, string> = {
-  fait: "◆", todo: "◇", "en cours": "▶", bloque: "⚠",
-};
+interface Props {
+  week: Week;
+  tasks: Task[];
+  phaseColor: string;
+  isCurrent: boolean;
+  onGenerate: (weekId: number) => void;
+  generating: boolean;
+}
 
 export default function PhaseWeekSection({
-  weekId,
-  weekTitle,
-  tasks,
-  livrables,
-}: {
-  weekId: number;
-  weekTitle: string;
-  tasks: TaskRow[];
-  livrables: LivrableRow[];
-}) {
+  week, tasks, phaseColor, isCurrent, onGenerate, generating,
+}: Props) {
+  const [open, setOpen] = useState(isCurrent || tasks.length > 0);
+  const stats = getTaskStats(tasks);
+  const hasDates = week.startDate && week.endDate;
+  const delta = week.endDate && week.baselineEndDate
+    ? computeDelta(week.baselineEndDate, week.endDate)
+    : 0;
+
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div className="row" style={{ gap: 8, marginBottom: 8, padding: "6px 0", borderBottom: "1px solid var(--border-soft)" }}>
-        <span className="mono" style={{ color: "var(--muted)", fontSize: 10, letterSpacing: "0.12em" }}>
-          S{weekId}
+    <div
+      className="border mb-1.5"
+      style={{
+        borderColor: isCurrent ? phaseColor : "var(--color-border)",
+        borderRadius: "6px",
+        borderLeftWidth: isCurrent ? "3px" : "1px",
+      }}
+    >
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 text-left min-h-[44px]"
+      >
+        <span className="text-xs" style={{ color: phaseColor }}>
+          {open ? "▼" : "▶"}
         </span>
-        <span style={{ fontSize: 13, fontWeight: 500 }}>{weekTitle}</span>
-        <span className="mono muted" style={{ marginLeft: "auto", fontSize: 10.5 }}>
-          {tasks.length} tâches · {livrables.length} livr.
+        <span
+          className="mono-label px-2 py-0.5"
+          style={{ color: phaseColor, border: `1px solid ${phaseColor}`, borderRadius: "4px" }}
+        >
+          S{week.id}
         </span>
-      </div>
-
-      {tasks.map(t => (
-        <div key={t.id} className="row" style={{ gap: 8, padding: "4px 4px", fontSize: 13 }}>
-          <span style={{ color: t.status === "fait" ? "var(--green)" : "var(--muted)", width: 12, flexShrink: 0 }}>
-            {STATUS_ICON[t.status] ?? "◇"}
+        <span className="text-sm font-medium flex-1 min-w-0" style={{ color: "var(--color-ink)" }}>
+          {week.title}
+        </span>
+        {hasDates && (
+          <span className="mono-label" style={{ color: "var(--color-muted)" }}>
+            {formatDateShort(week.startDate!)} → {formatDateShort(week.endDate!)}
           </span>
-          <span style={{ flex: 1, color: t.status === "fait" ? "var(--muted)" : "var(--ink)" }}>
-            {t.label}
-          </span>
-          <span className="mono" style={{ fontSize: 10, color: PRIORITY_COLOR[t.priority] ?? "var(--muted)" }}>
-            {t.priority?.toUpperCase()}
-          </span>
-          <span className="mono muted" style={{ fontSize: 10, minWidth: 48, textAlign: "right" }}>{t.owner}</span>
+        )}
+        {delta !== 0 && <DeltaIndicator delta={delta} compact />}
+        <span className="mono-label hidden md:inline" style={{ color: "var(--color-muted)" }}>
+          {week.budget_jh} JH
+        </span>
+        <div className="w-16 md:w-20">
+          <ProgressBar pct={stats.pct} color={phaseColor} />
         </div>
-      ))}
+        <span className="mono-label" style={{ color: "var(--color-muted)" }}>
+          {stats.done}/{stats.total}
+        </span>
+      </button>
 
-      {livrables.map(l => (
-        <div key={l.id} className="row" style={{ gap: 8, padding: "4px 4px 4px 20px", fontSize: 12.5 }}>
-          <span style={{ color: l.status === "valide" ? "var(--green)" : "var(--muted)", fontSize: 10 }}>↑</span>
-          <span style={{ flex: 1, color: "var(--ink-dim, var(--ink))" }}>{l.label}</span>
-          <span className="mono muted" style={{ fontSize: 10 }}>{l.status}</span>
+      {open && (
+        <div className="border-t" style={{ borderColor: "var(--color-border)" }}>
+          {tasks.length === 0 && !generating && (
+            <p className="text-sm py-3 px-4 italic" style={{ color: "var(--color-muted)" }}>
+              Aucune tâche
+            </p>
+          )}
+          {tasks.map((t) => (
+            <TaskRow key={t.id} task={t} />
+          ))}
+          <AddTaskInline weekId={week.id} />
+          <UploadZone weekId={week.id} />
+          {tasks.length === 0 && (
+            <div className="flex justify-end px-3 py-2">
+              <Button
+                variant="secondary"
+                onClick={(e) => { e.stopPropagation(); onGenerate(week.id); }}
+                disabled={generating}
+              >
+                {generating ? "⧳ GENERATION..." : "✨ GENERER TACHES"}
+              </Button>
+            </div>
+          )}
         </div>
-      ))}
+      )}
     </div>
   );
 }
