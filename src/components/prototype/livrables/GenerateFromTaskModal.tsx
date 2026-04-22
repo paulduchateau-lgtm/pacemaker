@@ -55,7 +55,7 @@ export default function GenerateFromTaskModal({
 
   const weeks = useMemo(() => {
     if (!tasks) return [] as number[];
-    return [...new Set(tasks.map((t) => t.weekId))].sort((a, b) => a - b);
+    return Array.from(new Set(tasks.map((t) => t.weekId))).sort((a, b) => a - b);
   }, [tasks]);
 
   const filtered = useMemo(() => {
