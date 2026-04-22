@@ -3,13 +3,7 @@ import Icon from "@/components/prototype/Icon";
 import Confidence from "@/components/prototype/Confidence";
 import SectionHead from "@/components/prototype/SectionHead";
 
-interface IncoherenceRow {
-  id: unknown;
-  severity: unknown;
-  description: unknown;
-  auto_resolution: unknown;
-  source_entity_type: unknown;
-}
+type IncoherenceRow = Record<string, unknown>;
 
 interface Props {
   incohs: IncoherenceRow[];

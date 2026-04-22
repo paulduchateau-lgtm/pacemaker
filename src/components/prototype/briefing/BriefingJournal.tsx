@@ -1,14 +1,7 @@
 import SourceIcon from "@/components/prototype/SourceIcon";
 import SectionHead from "@/components/prototype/SectionHead";
 
-interface EventRow {
-  id: unknown;
-  type: unknown;
-  label: unknown;
-  date: unknown;
-  content: unknown;
-  week_id: unknown;
-}
+type EventRow = Record<string, unknown>;
 
 interface Props {
   events: EventRow[];
