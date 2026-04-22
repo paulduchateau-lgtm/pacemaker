@@ -89,8 +89,16 @@ export default function Sidebar({ slug, mission, counts }: Props) {
     {
       title: "Signaux",
       items: [
-        { id: "incoh", href: `${base}/incoherences`, label: "Incohérences", icon: "incoh", count: counts.incoh ?? null, alert: true },
+        { id: "incoh", href: `${base}/incoherences`, label: "Incohérences & risques", icon: "incoh", count: counts.incoh ?? null, alert: true },
         { id: "pulse", href: `${base}/pulse`, label: "Pulse humain", icon: "pulse", pill: "NEW" },
+      ],
+    },
+    {
+      title: "Méta",
+      items: [
+        { id: "contexte", href: `${base}/contexte`, label: "Contexte mission", icon: "settings" },
+        { id: "recalibrations", href: `${base}/recalibrations`, label: "Recalibrages & agent", icon: "branch" },
+        { id: "regles", href: `${base}/regles`, label: "Règles apprises", icon: "scroll" },
       ],
     },
     {
