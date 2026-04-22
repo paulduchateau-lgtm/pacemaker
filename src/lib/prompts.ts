@@ -147,10 +147,9 @@ CONSIGNES :
 - Pour chaque décision, essaie d'extraire ses motifs explicites et les
   alternatives envisagées. Si le CR ne les mentionne pas, laisse ces champs
   vides (null / []) — n'invente rien.
-- Pour chaque action et chaque risque, ajoute confidence (0..1) + reasoning
-  (phrase courte).
-- Pour chaque décision, ajoute confidence (0..1) si c'est toi qui l'infères
-  depuis le CR.
+- Pour chaque action, décision et risque, ajoute confidence (0..1) + reasoning
+  (phrase courte) + severity ("minor"|"moderate"|"major").
+  severity minor = impact limité ; moderate = impact significatif ; major = impact critique.
 
 Réponds UNIQUEMENT avec du JSON :
 {
@@ -160,11 +159,12 @@ Réponds UNIQUEMENT avec du JSON :
       "rationale": "motifs explicites (null si non mentionnés)",
       "alternatives": ["alternative 1", "..."],
       "author": "paul|paul_b|client",
-      "confidence": 0.0-1.0
+      "confidence": 0.0-1.0,
+      "severity": "minor|moderate|major"
     }
   ],
-  "actions": [{"label": "...", "owner": "...", "priority": "...", "confidence": 0.0-1.0, "reasoning": "..."}],
-  "risks": [{"label": "...", "impact": 1, "probability": 1, "confidence": 0.0-1.0, "reasoning": "..."}],
+  "actions": [{"label": "...", "owner": "...", "priority": "...", "confidence": 0.0-1.0, "reasoning": "...", "severity": "minor|moderate|major"}],
+  "risks": [{"label": "...", "impact": 1, "probability": 1, "confidence": 0.0-1.0, "reasoning": "...", "severity": "minor|moderate|major"}],
   "opportunities": ["..."]
 }`;
 }
