@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Icon from "@/components/prototype/Icon";
 import Badge from "@/components/prototype/Badge";
 import SourceIcon from "@/components/prototype/SourceIcon";
+import DocSearch from "@/components/prototype/DocSearch";
 
 interface Source {
   id: string;
@@ -116,6 +117,8 @@ export default function SourcesV2Page() {
           </div>
         </div>
       </div>
+
+      <DocSearch slug={slug} />
 
       <div className="src-stats">
         <div className="src-stat">

@@ -38,8 +38,8 @@ async function fetchBriefing(missionId: string) {
       [missionId],
     ),
     safe(
-      `SELECT id, type, label, date, content FROM events
-       WHERE mission_id = ? ORDER BY date DESC LIMIT 10`,
+      `SELECT id, type, label, date, content, week_id FROM events
+       WHERE mission_id = ? ORDER BY date DESC LIMIT 100`,
       [missionId],
     ),
     safe(
@@ -141,7 +141,7 @@ export default async function BriefingPage({
         </>
       )}
 
-      <SectionHead icon="pulse" label="Derniers événements" count={b.events.length} />
+      <SectionHead icon="pulse" label="Journal mission" count={b.events.length} />
       <div className="card">
         <div className="card-body" style={{ padding: 0 }}>
           {b.events.length === 0 && (
