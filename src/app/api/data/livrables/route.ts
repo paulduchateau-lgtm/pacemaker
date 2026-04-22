@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
     label: r.label,
     status: r.status,
     deliveryDate: r.delivery_date || null,
+    sourceTaskId: (r.source_task_id as string | null) ?? null,
+    format: (r.format as string | null) ?? null,
   }));
   return NextResponse.json(livrables);
 }

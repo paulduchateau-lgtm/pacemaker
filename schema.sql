@@ -84,7 +84,9 @@ CREATE TABLE IF NOT EXISTS livrables (
   delivery_date TEXT,
   mission_id TEXT REFERENCES missions(id),
   confidence REAL,
-  reasoning TEXT
+  reasoning TEXT,
+  source_task_id TEXT REFERENCES tasks(id),
+  format TEXT
 );
 
 CREATE TABLE IF NOT EXISTS rapports (
