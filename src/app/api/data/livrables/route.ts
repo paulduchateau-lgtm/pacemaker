@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     deliveryDate: r.delivery_date || null,
     sourceTaskId: (r.source_task_id as string | null) ?? null,
     format: (r.format as string | null) ?? null,
+    primaryPhaseId: (r.primary_phase_id as string | null) ?? null,
   }));
   return NextResponse.json(livrables);
 }

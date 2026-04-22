@@ -75,6 +75,8 @@ const ICONS: Record<string, string> = {
     '<path d="M8 13.5C8 13.5 2 10 2 6C2 3.8 3.8 2.5 5.5 2.5C6.8 2.5 7.7 3.3 8 4C8.3 3.3 9.2 2.5 10.5 2.5C12.2 2.5 14 3.8 14 6C14 10 8 13.5 8 13.5Z"/>',
   scroll:
     '<path d="M3.5 2.5H11L13 4.5V13.5H5.5V4.5H3.5V2.5Z"/><path d="M11 2.5V4.5H13"/><path d="M7 7.5H11M7 10H11"/>',
+  trash:
+    '<path d="M2.5 4.5H13.5M5.5 4.5V3H10.5V4.5M6 4.5V13H10V4.5"/><rect x="4" y="4.5" width="8" height="9" rx="1"/>',
 };
 
 export type IconName = keyof typeof ICONS;

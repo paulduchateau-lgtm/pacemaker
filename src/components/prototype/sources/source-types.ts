@@ -12,6 +12,7 @@ export interface Source {
   inconsistency: boolean;
   blobUrl: string | null;
   contentPreview: string | null;
+  status: "active" | "obsolete";
 }
 
 export const KIND_META: Record<string, { label: string; icon: string }> = {
@@ -59,5 +60,6 @@ export function mapDocToSource(d: Record<string, unknown>): Source {
     inconsistency: false,
     blobUrl: (d.blobUrl as string | null) ?? (d.blob_url as string | null) ?? null,
     contentPreview: rawContent ? rawContent.slice(0, 600) : null,
+    status: (d.status as "active" | "obsolete") ?? "active",
   };
 }

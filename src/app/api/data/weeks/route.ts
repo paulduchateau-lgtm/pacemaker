@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     endDate: r.end_date || null,
     baselineStartDate: r.baseline_start_date || null,
     baselineEndDate: r.baseline_end_date || null,
+    phaseId: (r.phase_id as string | null) ?? null,
   }));
   return NextResponse.json(weeks);
 }

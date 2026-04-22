@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     blobUrl: r.blob_url,
     content: r.content,
     createdAt: r.created_at,
+    status: r.status ?? "active",
   }));
   return NextResponse.json(docs);
 }

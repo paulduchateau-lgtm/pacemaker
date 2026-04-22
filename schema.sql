@@ -118,7 +118,8 @@ CREATE TABLE IF NOT EXISTS documents (
   blob_url TEXT,
   content TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  mission_id TEXT REFERENCES missions(id)
+  mission_id TEXT REFERENCES missions(id),
+  status TEXT NOT NULL DEFAULT 'active'   -- 'active' | 'obsolete'
 );
 
 CREATE TABLE IF NOT EXISTS doc_chunks (

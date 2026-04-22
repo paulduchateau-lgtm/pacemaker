@@ -89,13 +89,14 @@ export async function searchDocs(
               vector_distance_cos(c.embedding, vector(?)) as distance
        FROM doc_chunks c
        JOIN documents d ON d.id = c.doc_id
-       WHERE d.mission_id = ?
+       WHERE d.mission_id = ? AND (d.status IS NULL OR d.status != 'obsolete')
        ORDER BY distance ASC
        LIMIT ?`
     : `SELECT c.id, c.doc_id, c.content, d.title,
               vector_distance_cos(c.embedding, vector(?)) as distance
        FROM doc_chunks c
        JOIN documents d ON d.id = c.doc_id
+       WHERE (d.status IS NULL OR d.status != 'obsolete')
        ORDER BY distance ASC
        LIMIT ?`;
   const args = missionId

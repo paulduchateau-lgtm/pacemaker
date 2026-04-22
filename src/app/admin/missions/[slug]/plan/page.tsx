@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import SidePanel from "@/components/ui/SidePanel";
 import { useSidePanel } from "@/hooks/useSidePanel";
@@ -21,6 +21,9 @@ export default function PlanPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("phases");
   const [pendingCount, setPendingCount] = useState(0);
+  const [regenLoading, setRegenLoading] = useState(false);
+  const [regenResult, setRegenResult] = useState<string | null>(null);
+  const [phasesKey, setPhasesKey] = useState(0); // force remount PhasesTab après regen
   const panel = useSidePanel();
 
   useEffect(() => {
@@ -31,15 +34,31 @@ export default function PlanPage() {
   useEffect(() => {
     if (!slug) return;
     fetch(`/api/impacts?count=1&status=proposed&mission=${slug}`, { headers: { "x-mission-slug": slug } })
-      .then((r) => r.json())
-      .then((d) => setPendingCount(Number(d?.count ?? 0)))
-      .catch(() => {});
+      .then(r => r.json()).then(d => setPendingCount(Number(d?.count ?? 0))).catch(() => {});
   }, [slug]);
 
-  const switchTab = (t: Tab) => {
-    setTab(t);
-    router.push(`?tab=${t}`, { scroll: false });
-  };
+  const switchTab = (t: Tab) => { setTab(t); router.push(`?tab=${t}`, { scroll: false }); };
+
+  const handleRegenerate = useCallback(async () => {
+    if (!confirm("Régénérer le plan par phases ?\n\nCette action efface toutes les tâches et livrables existants et les remplace par un nouveau plan généré par Claude.\n\nConfirmer ?")) return;
+    setRegenLoading(true);
+    setRegenResult(null);
+    try {
+      const res = await fetch("/api/llm/regenerate-plan", {
+        method: "POST",
+        headers: { "x-mission-slug": slug },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erreur serveur");
+      setRegenResult(`◆ Plan régénéré — ${data.tasks} tâches · ${data.livrables} livrables`);
+      setPhasesKey(k => k + 1); // recharge PhasesTab
+      setTab("phases");
+    } catch (err) {
+      setRegenResult(`⚠ Erreur : ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRegenLoading(false);
+    }
+  }, [slug]);
 
   const getPanelTitle = () => {
     if (!panel.content) return "";
@@ -53,12 +72,30 @@ export default function PlanPage() {
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="mono" style={{ color: "var(--muted)", marginBottom: 6 }}>
-            PLAN · PHASES · LIVRABLES
-          </div>
+          <div className="mono" style={{ color: "var(--muted)", marginBottom: 6 }}>PLAN · PHASES · LIVRABLES</div>
           <h1 className="page-title">Plan de mission</h1>
         </div>
+        <button
+          className="btn btn-ghost"
+          style={{ marginLeft: "auto", gap: 6, fontSize: 12, opacity: regenLoading ? 0.6 : 1 }}
+          onClick={handleRegenerate}
+          disabled={regenLoading}
+        >
+          <span style={{ fontFamily: "var(--font-mono, monospace)" }}>⟳</span>
+          {regenLoading ? "Régénération en cours..." : "Régénérer le plan"}
+        </button>
       </div>
+
+      {regenResult && (
+        <div className="mono" style={{
+          fontSize: 12, padding: "8px 14px", marginBottom: 12,
+          background: regenResult.startsWith("◆") ? "rgba(165,217,0,0.1)" : "rgba(217,91,47,0.1)",
+          border: "1px solid var(--border-soft)", borderRadius: 6,
+          color: regenResult.startsWith("◆") ? "var(--ink)" : "var(--alert, #D95B2F)",
+        }}>
+          {regenResult}
+        </div>
+      )}
 
       <div className="tabs" style={{ marginBottom: 20 }}>
         <div className={"tab" + (tab === "phases" ? " active" : "")} onClick={() => switchTab("phases")}>Phases</div>
@@ -74,7 +111,7 @@ export default function PlanPage() {
         </div>
       </div>
 
-      {tab === "phases" && <PhasesTab slug={slug} onOpenPanel={panel.openPanel} />}
+      {tab === "phases" && <PhasesTab key={phasesKey} slug={slug} onOpenPanel={panel.openPanel} />}
       {tab === "semaines" && <WeekPlanTab slug={slug} />}
       {tab === "livrables" && <LivrablesTab slug={slug} onOpenPanel={panel.openPanel} />}
       {tab === "arbitrages" && <ArbitrageTab slug={slug} />}
