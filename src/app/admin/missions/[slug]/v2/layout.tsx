@@ -52,18 +52,31 @@ export default async function V2Layout({
 
   const client = mission.client ?? mission.label;
 
+  // Wrapper fixed plein écran pour échapper au <main max-w-4xl mx-auto>
+  // du layout v1 parent. Sinon le shell v2 serait centré dans 896px max,
+  // d'où les marges beiges visibles autour de la sidebar.
   return (
-    <div className="app-shell">
-      <Sidebar
-        slug={slug}
-        mission={{ client: client + " · " + (mission.label ?? ""), label: mission.label ?? "" }}
-        counts={counts}
-      />
-      <main className="main-col">
-        <TopBar crumbs={["Pacemaker", mission.label ?? "Mission"]} />
-        <div className="main-body">{children}</div>
-      </main>
-      <CopilotConsole />
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "var(--paper)",
+        overflow: "auto",
+        zIndex: 10,
+      }}
+    >
+      <div className="app-shell">
+        <Sidebar
+          slug={slug}
+          mission={{ client: client + " · " + (mission.label ?? ""), label: mission.label ?? "" }}
+          counts={counts}
+        />
+        <main className="main-col">
+          <TopBar crumbs={["Pacemaker", mission.label ?? "Mission"]} />
+          <div className="main-body">{children}</div>
+        </main>
+        <CopilotConsole />
+      </div>
     </div>
   );
 }

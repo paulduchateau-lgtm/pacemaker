@@ -2,9 +2,11 @@
 :root {
   --ink: #1F1F1D;
   --ink-soft: #2D2D2A;
-  --paper: #FFFFFF;
+  /* Aligné sur la charte Lite Ops de Pacemaker (paper ivoire). Les cards
+     gardent un fond blanc via --paper-elevated. */
+  --paper: #F0EEEB;
   --paper-elevated: #FFFFFF;
-  --paper-sunk: #F6F5F2;
+  --paper-sunk: #EAE6DE;
   --border: #E8E5DE;
   --border-soft: #EEEBE4;
   --muted: #8F8B84;
@@ -100,7 +102,8 @@ input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
    utilisateur), soit par @media sur écrans étroits. Masque les labels,
    réduit la sidebar à 64px, grid du shell adapté. */
 .app-shell.sidebar-collapsed { grid-template-columns: 64px minmax(0, 1fr); }
-.sidebar.collapsed .nav-item span:not(.nav-count):not(.dot):not(.nav-dot-live),
+/* Masque tous les spans textuels mais garde .icon (SVG) et les counts/live dots */
+.sidebar.collapsed .nav-item > span:not(.icon):not(.nav-count):not(.dot):not(.nav-dot-live),
 .sidebar.collapsed .brand-name,
 .sidebar.collapsed .brand-env,
 .sidebar.collapsed .ms-meta,
@@ -113,7 +116,10 @@ input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 .sidebar.collapsed .channel-row { justify-content: center; padding: 6px 8px !important; }
 .sidebar.collapsed .nav-item { justify-content: center; padding: 9px 8px !important; position: relative; }
 .sidebar.collapsed .nav-count { position: absolute; top: 3px; right: 3px; }
-.sidebar.collapsed .sidebar-toggle { margin-left: auto; }
+.sidebar.collapsed .sidebar-toggle { margin-left: 0; }
+.sidebar.collapsed .brand { justify-content: center; }
+/* Masque aussi le pill "NEW" et les hints textuels en mode collapsed */
+.sidebar.collapsed .nav-item > span[style*="background"] { display: none; }
 
 .sidebar-toggle {
   margin-left: auto;
@@ -303,7 +309,7 @@ input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
   box-shadow: 0 0 0 2px var(--paper);
 }
 
-.page { padding: 24px 24px 80px; width: 100%; margin: 0 auto; }
+.page { padding: 28px 36px 80px; width: 100%; margin: 0 auto; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; gap: 20px; }
 .page-title {
   font-family: var(--sans);
