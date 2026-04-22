@@ -484,3 +484,71 @@ export interface UpdateIterationInput {
   targetMilestoneId?: string | null;
   notes?: string | null;
 }
+
+// ── Lot B — Arbitrage ──────────────────────────────────────────────────────
+export type IntakeSourceType = 'cr_text'|'upload'|'capture'|'vocal'|'pdf'|'json'|'note'|'wa_message';
+export type IntakeStatus = 'pending_parse'|'parsed'|'reviewed'|'archived';
+export type PlanImpactTargetType = 'task'|'risk'|'livrable'|'iteration'|'phase'|'milestone'|'success_criterion'|'decision'|'week'|'context_item';
+export type PlanImpactChangeType = 'add'|'modify'|'remove'|'reorder'|'reclassify'|'link'|'unlink';
+export type PlanImpactStatus = 'proposed'|'modified'|'accepted'|'rejected'|'superseded'|'auto_applied';
+export type PlanImpactSeverity = 'minor'|'moderate'|'major';
+
+export interface IntakeItem {
+  id: string;
+  mission_id: string;
+  source_type: IntakeSourceType;
+  source_ref?: string|null;
+  raw_content_ref?: string|null;
+  raw_content_excerpt?: string|null;
+  parsed_content?: string|null;
+  parse_generation_id?: string|null;
+  status: IntakeStatus;
+  ingested_at: string;
+  parsed_at?: string|null;
+  reviewed_at?: string|null;
+  document_id?: string|null;
+  created_by: string;
+}
+
+export interface PlanImpact {
+  id: string;
+  mission_id: string;
+  intake_id?: string|null;
+  generation_id?: string|null;
+  target_type: PlanImpactTargetType;
+  target_id?: string|null;
+  change_type: PlanImpactChangeType;
+  diff_before?: string|null;
+  diff_after?: string|null;
+  rationale?: string|null;
+  confidence?: number|null;
+  severity: PlanImpactSeverity;
+  status: PlanImpactStatus;
+  order_index: number;
+  decided_at?: string|null;
+  decided_by?: string|null;
+  agent_action_id?: string|null;
+  superseded_by?: string|null;
+  created_at: string;
+}
+
+export interface CreateIntakeInput {
+  source_type: IntakeSourceType;
+  raw_content_excerpt?: string;
+  source_ref?: string;
+  document_id?: string;
+}
+
+export interface CreateImpactInput {
+  intake_id?: string;
+  generation_id?: string;
+  target_type: PlanImpactTargetType;
+  target_id?: string;
+  change_type: PlanImpactChangeType;
+  diff_before?: unknown;
+  diff_after?: unknown;
+  rationale?: string;
+  confidence?: number;
+  severity?: PlanImpactSeverity;
+  order_index?: number;
+}
