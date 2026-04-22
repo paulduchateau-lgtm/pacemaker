@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import Icon from "./Icon";
 
 interface NavItem {
@@ -44,9 +45,31 @@ function BrandMark() {
   );
 }
 
+const COLLAPSE_KEY = "pacemaker-v2-sidebar-collapsed";
+
 export default function Sidebar({ slug, mission, counts }: Props) {
   const pathname = usePathname();
   const base = `/admin/missions/${slug}/v2`;
+  const [collapsed, setCollapsed] = useState<boolean>(false);
+
+  // Hydrate depuis localStorage au premier mount
+  useEffect(() => {
+    const v = localStorage.getItem(COLLAPSE_KEY);
+    if (v === "1") setCollapsed(true);
+  }, []);
+
+  // Mutation de la classe parent .app-shell pour que le grid s'adapte
+  useEffect(() => {
+    const shell = document.querySelector(".app-shell");
+    if (!shell) return;
+    shell.classList.toggle("sidebar-collapsed", collapsed);
+  }, [collapsed]);
+
+  const toggle = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+  };
   const sections: NavSection[] = [
     {
       title: "Aujourd'hui",
@@ -80,11 +103,19 @@ export default function Sidebar({ slug, mission, counts }: Props) {
   ];
 
   return (
-    <aside className="sidebar">
+    <aside className={"sidebar" + (collapsed ? " collapsed" : "")}>
       <div className="brand">
         <BrandMark />
         <span className="brand-name">Pacemaker</span>
         <span className="brand-env">v2</span>
+        <button
+          onClick={toggle}
+          className="sidebar-toggle"
+          aria-label={collapsed ? "Déplier la sidebar" : "Replier la sidebar"}
+          title={collapsed ? "Déplier" : "Replier"}
+        >
+          {collapsed ? "»" : "«"}
+        </button>
       </div>
 
       <div className="mission-switch" data-tip="Changer de mission">

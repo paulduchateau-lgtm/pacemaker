@@ -96,6 +96,39 @@ input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 }
 .app-shell.copilot-open .copilot-scrim { opacity: 1; pointer-events: auto; }
 
+/* Mode collapsed : déclenché soit via la classe .sidebar-collapsed (toggle
+   utilisateur), soit par @media sur écrans étroits. Masque les labels,
+   réduit la sidebar à 64px, grid du shell adapté. */
+.app-shell.sidebar-collapsed { grid-template-columns: 64px minmax(0, 1fr); }
+.sidebar.collapsed .nav-item span:not(.nav-count):not(.dot):not(.nav-dot-live),
+.sidebar.collapsed .brand-name,
+.sidebar.collapsed .brand-env,
+.sidebar.collapsed .ms-meta,
+.sidebar.collapsed .ms-caret,
+.sidebar.collapsed .nav-section-title,
+.sidebar.collapsed .sidebar-foot .ident,
+.sidebar.collapsed .channel-row > div:not([class]),
+.sidebar.collapsed .channel-row span:last-child { display: none; }
+.sidebar.collapsed .mission-switch { padding: 8px; justify-content: center; }
+.sidebar.collapsed .channel-row { justify-content: center; padding: 6px 8px !important; }
+.sidebar.collapsed .nav-item { justify-content: center; padding: 9px 8px !important; position: relative; }
+.sidebar.collapsed .nav-count { position: absolute; top: 3px; right: 3px; }
+.sidebar.collapsed .sidebar-toggle { margin-left: auto; }
+
+.sidebar-toggle {
+  margin-left: auto;
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  cursor: pointer;
+}
+.sidebar-toggle:hover { color: var(--ink); border-color: var(--ink); }
+
 @media (max-width: 900px) {
   .app-shell { grid-template-columns: 64px minmax(0, 1fr); min-width: 600px; }
   .sidebar .nav-item span:not(.nav-count):not(.dot):not(.nav-dot-live),
@@ -270,7 +303,7 @@ input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
   box-shadow: 0 0 0 2px var(--paper);
 }
 
-.page { padding: 28px 40px 80px; width: 100%; margin: 0 auto; }
+.page { padding: 24px 24px 80px; width: 100%; margin: 0 auto; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; gap: 20px; }
 .page-title {
   font-family: var(--sans);
@@ -1303,7 +1336,7 @@ body.theme-dark .progress > span { background: var(--ink); }
 /* ============================================================
    LIVRABLES — split view list + editor
    ============================================================ */
-.liv-page { max-width: 1280px; }
+/* max-width retirée — le shell Pacemaker v2 utilise toute la largeur */
 .liv-layout {
   display: grid;
   grid-template-columns: 340px 1fr;
@@ -1534,7 +1567,7 @@ body.theme-dark .liv-section-badge.ai { color: #C7E866; }
 /* ============================================================
    SOURCES — RAG index + detail
    ============================================================ */
-.src-page { max-width: 1280px; }
+/* max-width retirée — le shell Pacemaker v2 utilise toute la largeur */
 .src-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
