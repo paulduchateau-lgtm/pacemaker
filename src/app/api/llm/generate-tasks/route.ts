@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     const ragContext = await getRelevantContext(
       `${week.title} ${week.phase} ${week.actions.join(" ")}`,
-      { weekId, missionId: mission.id },
+      { weekId, missionId: mission.id, threshold: 0.65, limit: 10 },
     );
     const rules = await getRelevantRules(
       "tasks",
