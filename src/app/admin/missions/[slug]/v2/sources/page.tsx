@@ -19,6 +19,17 @@ interface Source {
   stale: boolean;
   staleNote?: string;
   inconsistency: boolean;
+  blobUrl: string | null;
+  contentPreview: string | null;
+}
+
+const IMAGE_FMTS = new Set(["PHOTO", "JPG", "JPEG", "PNG", "WEBP", "HEIC", "GIF"]);
+
+function isImage(s: Source): boolean {
+  if (!s.blobUrl) return false;
+  if (IMAGE_FMTS.has(s.fmt)) return true;
+  if (s.kind === "vision") return true;
+  return /\.(jpe?g|png|webp|heic|gif)(\?|$)/i.test(s.blobUrl);
 }
 
 /**
@@ -69,6 +80,7 @@ export default function SourcesV2Page() {
       else if (type === "photo" || source === "vision") kind = "vision";
       else if (type === "cr" || type === "note" || type === "spec") kind = "doc";
       const uploaded = String(d.createdAt ?? d.created_at ?? new Date().toISOString());
+      const rawContent = (d.content as string | null) ?? null;
       return {
         id: String(d.id),
         kind,
@@ -80,6 +92,8 @@ export default function SourcesV2Page() {
         extracts: [],
         stale: false,
         inconsistency: false,
+        blobUrl: (d.blobUrl as string | null) ?? (d.blob_url as string | null) ?? null,
+        contentPreview: rawContent ? rawContent.slice(0, 600) : null,
       };
     });
     setSources(mapped);
@@ -276,6 +290,67 @@ function SourceDetail({ s }: { s: Source }) {
         </div>
       </div>
 
+      {isImage(s) && s.blobUrl && (
+        <div className="src-section">
+          <div className="src-section-head">
+            <Icon name="eye" />
+            <span className="src-section-label">Aperçu image</span>
+          </div>
+          <a
+            href={s.blobUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: "block", marginTop: 10 }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={s.blobUrl}
+              alt={s.title}
+              loading="lazy"
+              style={{
+                width: "100%",
+                maxHeight: 520,
+                objectFit: "contain",
+                borderRadius: 6,
+                background: "var(--paper-sunk)",
+                border: "1px solid var(--border-soft)",
+              }}
+            />
+          </a>
+          <div className="mono" style={{ color: "var(--muted)", marginTop: 6 }}>
+            Cliquer pour ouvrir en taille réelle
+          </div>
+        </div>
+      )}
+
+      {s.contentPreview && (
+        <div className="src-section">
+          <div className="src-section-head">
+            <Icon name="file" />
+            <span className="src-section-label">
+              {s.kind === "vision" ? "Texte extrait (OCR)" : "Extrait texte"}
+            </span>
+          </div>
+          <div
+            style={{
+              padding: 12,
+              marginTop: 8,
+              background: "var(--paper-sunk)",
+              border: "1px solid var(--border-soft)",
+              borderRadius: 6,
+              fontSize: 12.5,
+              lineHeight: 1.5,
+              whiteSpace: "pre-wrap",
+              maxHeight: 300,
+              overflowY: "auto",
+              color: "var(--ink-dim)",
+            }}
+          >
+            {s.contentPreview}
+          </div>
+        </div>
+      )}
+
       <div className="src-section">
         <div className="src-section-head">
           <Icon name="sparkle" />
@@ -285,10 +360,8 @@ function SourceDetail({ s }: { s: Source }) {
           <div className="src-extract">
             <span className="src-extract-bullet" />
             <span>
-              Les chunks RAG de cette source sont accessibles via{" "}
-              <code>searchDocs(query, limit, missionId)</code> côté serveur. Le
-              panneau détaillé avec scores de similarité et liens d&apos;usage
-              viendra dans une prochaine itération.
+              Chunks RAG accessibles via <code>searchDocs()</code>. Utilise la recherche sémantique
+              en haut de page pour voir les passages pertinents d&apos;une requête.
             </span>
           </div>
         </div>

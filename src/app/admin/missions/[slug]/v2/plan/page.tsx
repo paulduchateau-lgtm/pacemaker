@@ -5,6 +5,7 @@ import { getCurrentWeek } from "@/lib/current-week";
 import Badge from "@/components/prototype/Badge";
 import Confidence from "@/components/prototype/Confidence";
 import PhaseRoadmap, { type RoadmapWeek } from "@/components/prototype/PhaseRoadmap";
+import GenerateTasksButton from "@/components/prototype/GenerateTasksButton";
 
 export const dynamic = "force-dynamic";
 
@@ -125,11 +126,16 @@ export default async function PlanPage({
               <span className="mono" style={{ marginLeft: "auto", color: "var(--muted)" }}>
                 {tasks.length} tâches · {done} ✓ · {w.budget} jh budget
               </span>
+              <GenerateTasksButton
+                weekId={w.id}
+                slug={slug}
+                label={tasks.length === 0 ? "Générer les tâches" : "Compléter par IA"}
+              />
             </div>
             <div className="card-body" style={{ padding: 0 }}>
               {tasks.length === 0 && (
                 <div style={{ padding: 16, color: "var(--muted)", fontSize: 13 }}>
-                  Aucune tâche pour cette semaine.
+                  Aucune tâche pour cette semaine — clique sur « Générer les tâches » ci-dessus.
                 </div>
               )}
               {tasks.map((t, i) => {
