@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
 
-export default async function V2Root({
+export default async function V2IndexPage({
   params,
 }: {
   params: { slug: string };
 }) {
-  const { slug } = params;
-  redirect(`/admin/missions/${slug}/v2/briefing`);
+  redirect(`/admin/missions/${params.slug}/briefing`);
 }
