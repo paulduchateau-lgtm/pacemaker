@@ -41,7 +41,7 @@ export default async function PlanPage({
   if (!mission) notFound();
   const currentWeek = await getCurrentWeek(mission.id);
 
-  const [weekRows, taskRows] = await Promise.all([
+  const [weekRows, taskRows, livrableRows] = await Promise.all([
     safe<Row>(
       `SELECT id, phase, title, budget_jh, start_date, end_date, owner
        FROM weeks WHERE mission_id = ? ORDER BY id`,
@@ -52,7 +52,15 @@ export default async function PlanPage({
        FROM tasks WHERE mission_id = ? ORDER BY week_id, priority`,
       [mission.id],
     ),
+    safe<{ source_task_id: string | null }>(
+      `SELECT source_task_id FROM livrables WHERE mission_id = ? AND source_task_id IS NOT NULL`,
+      [mission.id],
+    ).catch(() => [] as { source_task_id: string | null }[]),
   ]);
+  const livrablesByTask = new Map<string, number>();
+  for (const l of livrableRows) {
+    if (l.source_task_id) livrablesByTask.set(l.source_task_id, (livrablesByTask.get(l.source_task_id) ?? 0) + 1);
+  }
 
   const tasksByWeek = new Map<number, TaskRow[]>();
   for (const t of taskRows) {
@@ -181,6 +189,23 @@ export default async function PlanPage({
                       }}
                     />
                     <span style={{ flex: 1, fontSize: 13 }}>{t.label}</span>
+                    {livrablesByTask.has(t.id) && (
+                      <a
+                        href={`/admin/missions/${slug}/v2/livrables`}
+                        className="mono"
+                        style={{
+                          color: "var(--green-deep)",
+                          border: "1px solid color-mix(in oklch, var(--green) 40%, var(--border))",
+                          borderRadius: 4,
+                          padding: "1px 6px",
+                          fontSize: 10.5,
+                          textDecoration: "none",
+                        }}
+                        title={`${livrablesByTask.get(t.id)} livrable(s) issus de cette tâche`}
+                      >
+                        ↗ {livrablesByTask.get(t.id)} liv
+                      </a>
+                    )}
                     <Badge>{srcLabel}</Badge>
                     <Confidence value={t.confidence} />
                     <span className="mono" style={{ color: "var(--muted)", minWidth: 50 }}>
