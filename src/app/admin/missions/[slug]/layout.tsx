@@ -27,7 +27,7 @@ async function fetchCounts(missionId: string) {
       return [];
     }
   };
-  const [tasksRows, incohRows, plaudRows] = await Promise.all([
+  const [tasksRows, incohRows, plaudRows, arbitrageRows] = await Promise.all([
     safe(
       `SELECT COUNT(*) as c FROM tasks WHERE mission_id = ? AND status != 'fait'`,
       [missionId],
@@ -40,11 +40,16 @@ async function fetchCounts(missionId: string) {
       `SELECT COUNT(*) as c FROM plaud_transcripts WHERE mission_id = ?`,
       [missionId],
     ),
+    safe(
+      `SELECT COUNT(*) as c FROM plan_impacts WHERE mission_id = ? AND status IN ('proposed','modified')`,
+      [missionId],
+    ),
   ]);
   return {
     tasks: Number(tasksRows[0]?.c ?? 0),
     incoh: Number(incohRows[0]?.c ?? 0),
     inbox: Number(plaudRows[0]?.c ?? 0),
+    arbitrage: Number(arbitrageRows[0]?.c ?? 0),
   };
 }
 
@@ -80,6 +85,7 @@ export default async function MissionLayout({
             label: mission.label ?? "",
           }}
           counts={counts}
+          arbitrageBadge={counts.arbitrage}
         />
         <main className="main-col">
           <TopBar crumbs={["Pacemaker", mission.label ?? "Mission"]} />
