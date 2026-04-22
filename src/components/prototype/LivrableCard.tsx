@@ -9,6 +9,8 @@ export interface LivrableRow {
   week: number | null;
   status: string;
   delivered: string | null;
+  sourceTaskId?: string | null;
+  sourceTaskLabel?: string | null;
 }
 
 const FMT_COLOR: Record<string, string> = {
@@ -73,6 +75,11 @@ export default function LivrableCard({
             </Badge>
           </div>
           <div className="liv-card-title">{l.label}</div>
+          {l.sourceTaskLabel && (
+            <div className="mono" style={{ marginTop: 3, fontSize: 10.5, color: "var(--green-deep)" }}>
+              ↗ issu de : {l.sourceTaskLabel.slice(0, 60)}
+            </div>
+          )}
           {l.delivered && (
             <div className="mono muted" style={{ marginTop: 3, fontSize: 10.5 }}>
               livré {l.delivered.slice(0, 10)}

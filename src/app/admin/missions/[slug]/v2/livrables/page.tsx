@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Icon from "@/components/prototype/Icon";
 import Badge from "@/components/prototype/Badge";
 import LivrableCard, { type LivrableRow } from "@/components/prototype/LivrableCard";
+import GenerateFromTaskModal from "@/components/prototype/livrables/GenerateFromTaskModal";
 
 export default function LivrablesV2Page() {
   const params = useParams<{ slug: string }>();
@@ -12,22 +13,32 @@ export default function LivrablesV2Page() {
   const [items, setItems] = useState<LivrableRow[] | null>(null);
   const [tab, setTab] = useState<"all" | "drafts" | "review" | "sent" | "planned">("all");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!slug) return;
-    const res = await fetch("/api/data/livrables", {
-      headers: { "x-mission-slug": slug },
-    });
-    const json = await res.json();
-    const raw: LivrableRow[] = (json.livrables ?? json ?? []).map(
-      (l: Record<string, unknown>) => ({
-        id: String(l.id),
-        label: String(l.label ?? l.titre ?? "Livrable"),
-        fmt: String(l.fmt ?? l.format ?? "").toUpperCase() || "DOC",
-        week: l.weekId != null ? Number(l.weekId) : l.week_id != null ? Number(l.week_id) : null,
-        status: String(l.status ?? "planifié"),
-        delivered: (l.deliveryDate as string | null) ?? (l.delivered as string | null) ?? null,
-      }),
+    const [lRes, tRes] = await Promise.all([
+      fetch("/api/data/livrables", { headers: { "x-mission-slug": slug } }),
+      fetch("/api/data/tasks", { headers: { "x-mission-slug": slug } }),
+    ]);
+    const [livrablesJson, tasksJson] = await Promise.all([lRes.json(), tRes.json()]);
+    const tasks = Array.isArray(tasksJson) ? tasksJson : tasksJson.tasks ?? [];
+    const taskLabelById: Record<string, string> = {};
+    for (const t of tasks) taskLabelById[String(t.id)] = String(t.label ?? "");
+    const raw: LivrableRow[] = (livrablesJson.livrables ?? livrablesJson ?? []).map(
+      (l: Record<string, unknown>) => {
+        const sourceTaskId = (l.sourceTaskId as string | null) ?? null;
+        return {
+          id: String(l.id),
+          label: String(l.label ?? l.titre ?? "Livrable"),
+          fmt: String(l.fmt ?? l.format ?? "").toUpperCase() || "DOC",
+          week: l.weekId != null ? Number(l.weekId) : l.week_id != null ? Number(l.week_id) : null,
+          status: String(l.status ?? "planifié"),
+          delivered: (l.deliveryDate as string | null) ?? (l.delivered as string | null) ?? null,
+          sourceTaskId,
+          sourceTaskLabel: sourceTaskId ? (taskLabelById[sourceTaskId] ?? null) : null,
+        };
+      },
     );
     setItems(raw);
     if (raw.length > 0 && !openId) setOpenId(raw[0].id);
@@ -66,7 +77,13 @@ export default function LivrablesV2Page() {
             son statut, sa semaine cible, son format.
           </div>
         </div>
+        <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
+          <Icon name="sparkle" /> Générer depuis une tâche
+        </button>
       </div>
+      {modalOpen && (
+        <GenerateFromTaskModal slug={slug} onClose={() => setModalOpen(false)} onGenerated={load} />
+      )}
 
       <div className="tabs">
         <div
@@ -211,6 +228,24 @@ function LivrablePreview({ l, slug }: { l: LivrableRow; slug: string }) {
         <h1 className="liv-doc-title">{l.label}</h1>
         <div className="liv-doc-subtitle">Document {l.fmt}</div>
         <div className="liv-doc-authorline mono">Mission · semaine {l.week ?? "—"}</div>
+        {l.sourceTaskLabel && (
+          <div
+            className="row"
+            style={{
+              gap: 8,
+              marginTop: 12,
+              padding: "8px 12px",
+              background: "color-mix(in oklch, var(--green) 10%, var(--paper-elevated))",
+              border: "1px solid color-mix(in oklch, var(--green) 30%, var(--border))",
+              borderRadius: 6,
+              fontSize: 12.5,
+            }}
+          >
+            <Icon name="link" />
+            <span className="mono" style={{ color: "var(--muted)" }}>ISSU DE LA TÂCHE</span>
+            <span style={{ flex: 1 }}>{l.sourceTaskLabel}</span>
+          </div>
+        )}
 
         <div className="liv-doc-section">
           <h2 className="liv-doc-h2">Aperçu</h2>
