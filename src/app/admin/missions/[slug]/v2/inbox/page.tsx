@@ -1,22 +1,24 @@
-import { notFound } from "next/navigation";
-import Link from "next/link";
-import { getMissionBySlug } from "@/lib/mission";
-import { listTranscripts } from "@/lib/plaud";
+"use client";
+
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import Icon from "@/components/prototype/Icon";
-import Badge from "@/components/prototype/Badge";
+import CapturePanel from "@/components/prototype/inbox/CapturePanel";
+import UploadPanel from "@/components/prototype/inbox/UploadPanel";
+import PlaudPanel from "@/components/prototype/inbox/PlaudPanel";
 
-export const dynamic = "force-dynamic";
+type Tab = "capture" | "upload" | "plaud";
 
-export default async function InboxPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const { slug } = params;
-  const mission = await getMissionBySlug(slug);
-  if (!mission) notFound();
+const TABS: Array<{ id: Tab; label: string; icon: string; sub: string }> = [
+  { id: "capture", label: "Capture photo", icon: "camera", sub: "Tableau, Post-it, slide → Vision" },
+  { id: "upload", label: "Documents", icon: "upload", sub: "PDF, DOCX, image, texte libre" },
+  { id: "plaud", label: "Plaud", icon: "mic", sub: "Transcript audio → extraction" },
+];
 
-  const transcripts = await listTranscripts(mission.id, 10).catch(() => []);
+export default function InboxV2Page() {
+  const params = useParams<{ slug: string }>();
+  const slug = params?.slug ?? "";
+  const [tab, setTab] = useState<Tab>("capture");
 
   return (
     <div className="page">
@@ -27,97 +29,51 @@ export default async function InboxPage({
           </div>
           <h1 className="page-title">Inbox capture</h1>
           <div className="page-sub">
-            Tout ce qui entre avant qu&apos;il ne devienne tâche, décision ou
-            incohérence. Plaud est branché ; WhatsApp et chatbot arrivent dans
-            les prochaines itérations.
+            Tout ce qui entre avant qu&apos;il ne devienne tâche, décision ou incohérence.
           </div>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        {/* Plaud panel — branché sur la DB */}
-        <div className="card">
-          <div className="card-head">
-            <Icon name="mic" />
-            <span className="card-title">Plaud · captations</span>
-            <Badge tone="green" dot>
-              synchro
-            </Badge>
-          </div>
-          <div className="card-body" style={{ padding: 0 }}>
-            {transcripts.length === 0 && (
-              <div style={{ padding: 16, color: "var(--muted)", fontSize: 13 }}>
-                Aucun transcript ingéré pour cette mission.
-                <br />
-                <Link href={`/admin/missions/${slug}/plaud`} style={{ color: "var(--ink)", textDecoration: "underline" }}>
-                  Coller un transcript →
-                </Link>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+        {TABS.map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className="card"
+              style={{
+                padding: 14,
+                textAlign: "left",
+                cursor: "pointer",
+                borderColor: active ? "var(--ink)" : "var(--border-soft)",
+                background: active ? "var(--paper-elevated)" : "var(--paper-elevated)",
+                boxShadow: active ? "0 0 0 1px var(--ink) inset" : "none",
+              }}
+            >
+              <div className="row" style={{ gap: 10, marginBottom: 4 }}>
+                <span
+                  style={{
+                    width: 28, height: 28, borderRadius: 7,
+                    background: active ? "var(--ink)" : "var(--paper-sunk)",
+                    color: active ? "var(--paper)" : "var(--muted)",
+                    display: "grid", placeItems: "center", flexShrink: 0,
+                  }}
+                >
+                  <Icon name={t.icon} />
+                </span>
+                <span style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink)" }}>{t.label}</span>
               </div>
-            )}
-            {transcripts.map((t, i) => (
-              <div
-                key={t.id}
-                style={{
-                  padding: "12px 16px",
-                  borderBottom: i === transcripts.length - 1 ? "none" : "1px solid var(--border-soft)",
-                }}
-              >
-                <div className="row" style={{ gap: 10, marginBottom: 6 }}>
-                  <div
-                    style={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: 7,
-                      background: "var(--ink)",
-                      display: "grid",
-                      placeItems: "center",
-                      color: "var(--paper)",
-                    }}
-                  >
-                    <Icon name="mic" />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>
-                      {t.contextLabel ?? "Transcript Plaud"}
-                    </div>
-                    <div className="mono" style={{ color: "var(--muted)" }}>
-                      {new Date(t.recordedAt).toLocaleString("fr-FR", {
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      {t.durationSeconds ? ` · ${Math.round(t.durationSeconds / 60)} min` : ""}
-                      {` · ${t.author}`}
-                    </div>
-                  </div>
-                </div>
-                {t.summary && (
-                  <div className="dim" style={{ fontSize: 12, marginTop: 4 }}>
-                    {t.summary.slice(0, 180)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+              <div className="mono" style={{ color: "var(--muted)" }}>{t.sub}</div>
+            </button>
+          );
+        })}
+      </div>
 
-        {/* WhatsApp — placeholder en attente du branchement */}
-        <div className="card">
-          <div className="card-head">
-            <Icon name="wa" />
-            <span className="card-title">WhatsApp · allowlist</span>
-            <Badge tone="soft">à brancher</Badge>
-          </div>
-          <div className="card-body">
-            <div style={{ padding: 16, color: "var(--muted)", fontSize: 13 }}>
-              Canal WhatsApp prévu comme input principal (cf. spec
-              pacemaker-whatsapp-agent-spec.md). Quand il sera branché,
-              les messages entrants arriveront ici avec allowlist, parsing
-              et routage vers décisions/tâches/incohérences.
-            </div>
-          </div>
-        </div>
+      <div className="card" style={{ padding: 20 }}>
+        {tab === "capture" && <CapturePanel />}
+        {tab === "upload" && <UploadPanel slug={slug} />}
+        {tab === "plaud" && <PlaudPanel slug={slug} />}
       </div>
     </div>
   );
